@@ -46,15 +46,11 @@ const (
 )
 
 func syncLogger(logger *zap.Logger) {
-	if err := logger.Sync(); err != nil {
-		panic(err)
-	}
+	_ = logger.Sync()
 }
 
 func closeFile(f *os.File) {
-	if err := f.Close(); err != nil {
-		panic(err)
-	}
+	_ = f.Close()
 }
 
 func readFile(filepath string) string {
