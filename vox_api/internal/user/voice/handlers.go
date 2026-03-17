@@ -32,10 +32,10 @@ func closeReader(rd io.ReadCloser, log *zap.Logger) {
 // @Accept       application/octet-stream
 // @Param        text_ref  query  string  true  "Reference text associated with the voice sample"
 // @Success      200  "Voice reference uploaded successfully"
-// @Failure      400  {object}  mod.HttpErrorResponse  "Reference text is missing"
-// @Failure      401  {object}  mod.HttpErrorResponse  "Missing or invalid auth cookies (IsAuthorized middleware)"
-// @Failure      404  {object}  mod.HttpErrorResponse  "Invalid user ID"
-// @Failure      500  {object}  mod.HttpErrorResponse  "Internal server error"
+// @Failure      400  {object}  models.HttpErrorResponse  "Reference text is missing"
+// @Failure      401  {object}  models.HttpErrorResponse  "Missing or invalid auth cookies (IsAuthorized middleware)"
+// @Failure      404  {object}  models.HttpErrorResponse  "Invalid user ID"
+// @Failure      500  {object}  models.HttpErrorResponse  "Internal server error"
 // @Security     CookieAuth
 // @Router       /user/voice/new [post]
 func (v *VoiceAPI) ReferenceHandler(ctx *gin.Context) {

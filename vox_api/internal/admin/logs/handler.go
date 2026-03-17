@@ -20,6 +20,18 @@ type LogsAPI struct {
 	Atomic zap.AtomicLevel
 }
 
+// LevelHandler godoc
+// @Summary      Set log level
+// @Tags         admin
+// @Accept       json
+// @Produce      json
+// @Param        body  body      LevelRequest  true  "Log level (debug, info, warn, error)"
+// @Success      204
+// @Failure      400   {object}  models.HttpErrorResponse
+// @Failure      403   {object}  models.HttpErrorResponse
+// @Failure      500   {object}  models.HttpErrorResponse
+// @Security     AdminAuth
+// @Router       /admin/logs/level [put]
 func (l *LogsAPI) LevelHandler(ctx *gin.Context) {
 	log := mod.GetLogger(ctx)
 	body, err := io.ReadAll(ctx.Request.Body)

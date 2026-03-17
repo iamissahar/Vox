@@ -20,9 +20,9 @@ type UserAPI struct {
 // @Tags         user
 // @Produce      json
 // @Success      200  {object}  UserInfo  "User info returned successfully"
-// @Failure      400  {object}  mod.HttpErrorResponse  "Invalid user ID"
-// @Failure      401  {object}  mod.HttpErrorResponse  "Missing or invalid auth cookies (IsAuthorized middleware)"
-// @Failure      500  {object}  mod.HttpErrorResponse  "Internal server error"
+// @Failure      400  {object}  models.HttpErrorResponse  "Invalid user ID"
+// @Failure      401  {object}  models.HttpErrorResponse  "Missing or invalid auth cookies (IsAuthorized middleware)"
+// @Failure      500  {object}  models.HttpErrorResponse  "Internal server error"
 // @Security     CookieAuth
 // @Router       /user/info [get]
 func (u *UserAPI) InfoHandler(ctx *gin.Context) {

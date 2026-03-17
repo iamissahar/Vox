@@ -49,6 +49,7 @@ func (a *AuthAPI) IsAuthorized(ctx *gin.Context) {
 	}
 
 	ctx.Set("claims", claims)
+	ctx.Set("user_id", claims.Subject)
 	ctx.Next()
 	log.Debug("User is authorized", zap.String("user_id", claims.Subject))
 }
@@ -106,9 +107,9 @@ func (a *AuthAPI) LoginViaProviderHandler(ctx *gin.Context) {
 // @Param        provider  path   string  true  "OAuth2 provider" Enums(google, github)
 // @Param        code      query  string  true  "Authorization code returned by the provider"
 // @Success      307  "Redirect to the frontend with access and refresh token cookies set"
-// @Failure      401  {object}  mod.HttpErrorResponse  "Failed to exchange authorization code for token"
+// @Failure      401  {object}  models.HttpErrorResponse  "Failed to exchange authorization code for token"
 // @Failure      404  "Provider is not supported"
-// @Failure      500  {object}  mod.HttpErrorResponse  "Internal server error"
+// @Failure      500  {object}  models.HttpErrorResponse  "Internal server error"
 // @Router       /auth/{provider}/callback [get]
 func (a *AuthAPI) ProviderCallbackHandler(ctx *gin.Context) {
 	var (
@@ -220,8 +221,8 @@ func (a *AuthAPI) ProviderCallbackHandler(ctx *gin.Context) {
 // @Accept       json
 // @Param        body  body  signUpPayload  true  "Sign up payload"
 // @Success      201  "User created successfully, access and refresh token cookies set"
-// @Failure      400  {object}  mod.HttpErrorResponse  "Invalid request body"
-// @Failure      500  {object}  mod.HttpErrorResponse  "Internal server error"
+// @Failure      400  {object}  models.HttpErrorResponse  "Invalid request body"
+// @Failure      500  {object}  models.HttpErrorResponse  "Internal server error"
 // @Router       /auth/sign_up [post]
 func (a *AuthAPI) SignUpHandler(ctx *gin.Context) {
 	log := mod.GetLogger(ctx)
@@ -286,9 +287,9 @@ func (a *AuthAPI) SignUpHandler(ctx *gin.Context) {
 // @Produce      json
 // @Param        body  body  loginPayload  true  "Login payload"
 // @Success      200  {object}  map[string]string  "Login successful, access and refresh token cookies set"
-// @Failure      400  {object}  mod.HttpErrorResponse  "Invalid request body"
-// @Failure      401  {object}  mod.HttpErrorResponse  "Invalid credentials"
-// @Failure      500  {object}  mod.HttpErrorResponse  "Internal server error"
+// @Failure      400  {object}  models.HttpErrorResponse  "Invalid request body"
+// @Failure      401  {object}  models.HttpErrorResponse  "Invalid credentials"
+// @Failure      500  {object}  models.HttpErrorResponse  "Internal server error"
 // @Router       /auth/login [post]
 func (a *AuthAPI) LoginHandler(ctx *gin.Context) {
 	log := mod.GetLogger(ctx)
@@ -342,10 +343,10 @@ func (a *AuthAPI) LoginHandler(ctx *gin.Context) {
 // @Param        access_token   header  string  true  "Access token cookie"
 // @Param        refresh_token  header  string  true  "Refresh token cookie"
 // @Success      201  "Token pair refreshed successfully, new cookies set"
-// @Failure      400  {object}  mod.HttpErrorResponse  "Access or refresh token cookie is missing"
-// @Failure      401  {object}  mod.HttpErrorResponse  "Refresh token is invalid"
-// @Failure      403  {object}  mod.HttpErrorResponse  "Access token is invalid"
-// @Failure      500  {object}  mod.HttpErrorResponse  "Internal server error"
+// @Failure      400  {object}  models.HttpErrorResponse  "Access or refresh token cookie is missing"
+// @Failure      401  {object}  models.HttpErrorResponse  "Refresh token is invalid"
+// @Failure      403  {object}  models.HttpErrorResponse  "Access token is invalid"
+// @Failure      500  {object}  models.HttpErrorResponse  "Internal server error"
 // @Router       /auth/refresh [post]
 func (a *AuthAPI) RefreshHandler(ctx *gin.Context) {
 	log := mod.GetLogger(ctx)

@@ -15,6 +15,10 @@
 // @securityDefinitions.apikey  CookieAuthRefresh
 // @in                          cookie
 // @name                        refresh_token
+//
+// @securityDefinitions.apikey AdminAuth
+// @in header
+// @name Authorization
 
 package main
 

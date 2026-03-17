@@ -59,6 +59,13 @@ type Config struct {
 	AdminToken         string
 }
 
+type HttpErrorResponse struct {
+	Error struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	} `json:"error"`
+}
+
 func HttpError(code int, msg string) []byte {
 	return []byte(`{"error": {"code": ` + strconv.Itoa(code) + `, "message": "` + msg + `"}}`)
 }

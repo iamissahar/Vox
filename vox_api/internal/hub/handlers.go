@@ -80,10 +80,10 @@ func (h *HubAPI) IsHubIDValid(ctx *gin.Context) {
 // @Produce      json
 // @Param        hub_id  path  string  true  "Hub ID"
 // @Success      201  {object}  map[string]string  "Hub created successfully"
-// @Failure      404  {object}  mod.HttpErrorResponse  "Hub ID is empty or invalid"
-// @Failure      409  {object}  mod.HttpErrorResponse  "Hub with the given ID already exists"
-// @Failure      401  {object}  mod.HttpErrorResponse  "Missing or invalid auth cookies (IsAuthorized middleware)"
-// @Failure      415  {object}  mod.HttpErrorResponse  "Invalid content type (IsContentTypeValid middleware)"
+// @Failure      404  {object}  models.HttpErrorResponse  "Hub ID is empty or invalid"
+// @Failure      409  {object}  models.HttpErrorResponse  "Hub with the given ID already exists"
+// @Failure      401  {object}  models.HttpErrorResponse  "Missing or invalid auth cookies (IsAuthorized middleware)"
+// @Failure      415  {object}  models.HttpErrorResponse  "Invalid content type (IsContentTypeValid middleware)"
 // @Security     CookieAuth
 // @Router       /hub/{hub_id}/new [post]
 func (h *HubAPI) NewHubHandler(ctx *gin.Context) {
@@ -113,7 +113,7 @@ func (h *HubAPI) NewHubHandler(ctx *gin.Context) {
 // @Produce      audio/mpeg
 // @Param        hub_id  path  string  true  "Hub ID"
 // @Success      200  "Audio stream delivered as chunked audio/mpeg"
-// @Failure      404  {object}  mod.HttpErrorResponse  "Invalid hub ID (IsHubIDValid middleware)"
+// @Failure      404  {object}  models.HttpErrorResponse  "Invalid hub ID (IsHubIDValid middleware)"
 // @Router       /hub/{hub_id}/listen [get]
 func (h *HubAPI) ListenHandler(ctx *gin.Context) {
 	log := mod.GetLogger(ctx)
@@ -181,10 +181,10 @@ func (h *HubAPI) FishSDK(ctx *gin.Context) {
 // @Param        hub_id  path  string  true  "Hub ID"
 // @Param        lang    path  string  true  "Transcription language code (e.g. en, ru)"
 // @Success      200  "Audio stream processed successfully"
-// @Failure      401  {object}  mod.HttpErrorResponse  "Missing or invalid auth cookies (IsAuthorized middleware)"
-// @Failure      404  {object}  mod.HttpErrorResponse  "Invalid user ID or hub"
-// @Failure      415  {object}  mod.HttpErrorResponse  "Invalid content type (IsContentTypeValid middleware)"
-// @Failure      500  {object}  mod.HttpErrorResponse  "Internal server error"
+// @Failure      401  {object}  models.HttpErrorResponse  "Missing or invalid auth cookies (IsAuthorized middleware)"
+// @Failure      404  {object}  models.HttpErrorResponse  "Invalid user ID or hub"
+// @Failure      415  {object}  models.HttpErrorResponse  "Invalid content type (IsContentTypeValid middleware)"
+// @Failure      500  {object}  models.HttpErrorResponse  "Internal server error"
 // @Security     CookieAuth
 // @Router       /hub/{hub_id}/publish [post]
 func (h *HubAPI) PublishHandler(ctx *gin.Context) {
