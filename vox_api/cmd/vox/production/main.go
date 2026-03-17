@@ -133,17 +133,17 @@ func newPool(ctx context.Context, dsn string) *pgxpool.Pool {
 func buildDBURL() string {
 	var b strings.Builder
 	b.WriteString("postgres://")
-	b.WriteString(readFile("POSTGRES_USER_FILE"))
+	b.WriteString(readFile(getEnv("POSTGRES_USER_FILE")))
 	b.WriteString(":")
-	b.WriteString(readFile("POSTGRES_PASSWORD_FILE"))
+	b.WriteString(readFile(getEnv("POSTGRES_PASSWORD_FILE")))
 	b.WriteString("@")
-	b.WriteString(readFile("POSTGRES_HOST_FILE"))
+	b.WriteString(readFile(getEnv("POSTGRES_HOST_FILE")))
 	b.WriteString(":")
-	b.WriteString(readFile("POSTGRES_PORT_FILE"))
+	b.WriteString(readFile(getEnv("POSTGRES_PORT_FILE")))
 	b.WriteString("/")
-	b.WriteString(readFile("POSTGRES_DB_NAME_FILE"))
+	b.WriteString(readFile(getEnv("POSTGRES_DB_NAME_FILE")))
 	b.WriteString("?sslmode=")
-	b.WriteString(readFile("POSTGRES_SSLMODE_FILE"))
+	b.WriteString(readFile(getEnv("POSTGRES_SSLMODE_FILE")))
 	return b.String()
 }
 
