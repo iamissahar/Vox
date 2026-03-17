@@ -61,6 +61,8 @@ jobs:
           envs: >-
             TAG,
             MODE,
+            PGX_MAX_CONNS,
+            PGX_MIN_CONNS,
             REGISTRY_USER,
             REGISTRY_PASSWORD,
             JWT_SECRET,
@@ -141,6 +143,7 @@ jobs:
 
             export TAG="$TAG"
             export DOCKER_REGISTRY="$REGISTRY_USER"
+            export PGX_MAX_CONNS PGX_MIN_CONNS
             export MODE BASE_URL FRONTEND_URL GROQ_MODEL GROQ_BASE_URL
             export FISH_AUDIO_BASE_URL DEEPGRAM_BASE_URL DEEPGRAM_MODEL
             export GOOGLE_TOKEN_URL GH_TOKEN_URL
@@ -209,6 +212,8 @@ jobs:
         env:
           TAG: ${{ env.TAG }}
           MODE: ${{ vars.MODE }}
+          PGX_MAX_CONNS: ${{ vars.PGX_MAX_CONNS }}
+          PGX_MIN_CONNS: ${{ vars.PGX_MIN_CONNS }}
           REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
           REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}

@@ -152,6 +152,8 @@ services:
     ports:
       - "9081:9081"
     environment:
+      PGX_MAX_CONNS: "${PGX_MAX_CONNS}"
+      PGX_MIN_CONNS: "${PGX_MIN_CONNS}"
       MODE: "${MODE}"
       LOKI_URL: "http://loki:3100"
       BASE_URL: "${BASE_URL}"
