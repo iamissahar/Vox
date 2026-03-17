@@ -95,10 +95,14 @@ jobs:
             echo "$REGISTRY_PASSWORD" | docker login -u "$REGISTRY_USER" --password-stdin
 
             sync_secret() {
-              local name="${1}_${TAG}"
+              local name="${1}_${TAG:0:8}"
               local value="$2"
+              if [ -z "$value" ]; then
+                echo "ERROR: $1 is empty"
+                exit 1
+              fi
               if ! docker secret inspect "$name" >/dev/null 2>&1; then
-                echo "Creating secret: $name (length: ${#name})"
+                echo "Creating secret: $name"
                 printf '%s' "$value" | docker secret create "$name" -
               fi
             }
@@ -166,8 +170,8 @@ jobs:
 
             echo "Cleaning up old secrets..."
             docker secret ls --format '{{.Name}}' \
-              | grep -E '^(JWT_SECRET_FILE|POSTGRES_USER_FILE|POSTGRES_PASSWORD_FILE|POSTGRES_HOST_FILE|POSTGRES_PORT_FILE|POSTGRES_SSLMODE_FILE|GRAFANA_PASSWORD_FILE|DEEPGRAM_API_KEY_FILE|GROQ_API_KEY_FILE|FISH_AUDIO_API_KEY_FILE|GH_CLIENT_ID_FILE|GH_CLIENT_SECRET_FILE|GOOGLE_CLIENT_ID_FILE|GOOGLE_CLIENT_SECRET_FILE|ADMIN_TOKEN_FILE)_[a-f0-9]{40}$' \
-              | grep -v "_${TAG}$" \
+              | grep -E '^(JWT_SECRET_FILE|POSTGRES_USER_FILE|POSTGRES_PASSWORD_FILE|POSTGRES_HOST_FILE|POSTGRES_PORT_FILE|POSTGRES_SSLMODE_FILE|GRAFANA_PASSWORD_FILE|DEEPGRAM_API_KEY_FILE|GROQ_API_KEY_FILE|FISH_AUDIO_API_KEY_FILE|GH_CLIENT_ID_FILE|GH_CLIENT_SECRET_FILE|GOOGLE_CLIENT_ID_FILE|GOOGLE_CLIENT_SECRET_FILE|ADMIN_TOKEN_FILE)_[a-f0-9]{8}$' \
+              | grep -v "_${TAG:0:8}$" \
               | xargs -r docker secret rm \
               || true
 
