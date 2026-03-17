@@ -71,7 +71,7 @@ services:
     environment:
       POSTGRES_USER_FILE: /run/secrets/POSTGRES_USER_FILE
       POSTGRES_PASSWORD_FILE: /run/secrets/POSTGRES_PASSWORD_FILE
-      POSTGRES_DB: vox_postgres
+      POSTGRES_DB: vox_db
     secrets:
       - POSTGRES_USER_FILE
       - POSTGRES_PASSWORD_FILE
