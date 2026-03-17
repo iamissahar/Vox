@@ -5,10 +5,11 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 FROM deps AS tools
-RUN go install github.com/pressly/goose/v3/cmd/goose@latest
-RUN go install github.com/swaggo/swag/cmd/swag@latest
+RUN go install github.com/pressly/goose/v3/cmd/goose@v3.24.2
+RUN go install github.com/swaggo/swag/cmd/swag@v1.16.4
 
 FROM deps AS builder
+COPY --from=tools /go/bin/swag /go/bin/swag
 COPY . .
 RUN /go/bin/swag init -g ./cmd/vox/production/main.go -o ./docs
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
