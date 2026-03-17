@@ -154,6 +154,11 @@ jobs:
               -c docker/docker-compose.resolved.yml \
               vox_stack
 
+            docker service update \
+              --force \
+              --image bogdanantonovich/vox:${TAG} \
+              vox_stack_vox
+
             echo "Waiting for vox service to stabilize..."
 
             MAX_WAIT=30
