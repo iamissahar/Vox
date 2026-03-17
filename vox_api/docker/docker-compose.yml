@@ -137,7 +137,7 @@ services:
   grafana:
     image: grafana/grafana:11.5.2
     ports:
-      - "3000:3000"
+      - "3001:3001"
     environment:
       GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/GRAFANA_PASSWORD_FILE
     secrets:
