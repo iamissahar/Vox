@@ -127,6 +127,7 @@ jobs:
 
             cd ~/vox_api
 
+            export TAG="$TAG"
             export DOCKER_REGISTRY="$REGISTRY_USER"
             export BASE_URL FRONTEND_URL GROQ_MODEL GROQ_BASE_URL
             export FISH_AUDIO_BASE_URL DEEPGRAM_BASE_URL DEEPGRAM_MODEL
