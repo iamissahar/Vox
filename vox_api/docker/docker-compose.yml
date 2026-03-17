@@ -1,0 +1,208 @@
+# version: "3.9"
+
+networks:
+  vox_network:
+    driver: overlay
+
+configs:
+  postgres_init:
+    external: true
+    name: postgres_init_${TAG}
+  loki_config:
+    external: true
+    name: loki_config_${TAG}
+
+volumes:
+  postgres_data:
+  loki_data:
+  grafana_data:
+  app_state:
+
+secrets:
+  JWT_SECRET_FILE:
+    external: true
+    name: JWT_SECRET_FILE_${TAG}
+  POSTGRES_USER_FILE:
+    external: true
+    name: POSTGRES_USER_FILE_${TAG}
+  POSTGRES_PASSWORD_FILE:
+    external: true
+    name: POSTGRES_PASSWORD_FILE_${TAG}
+  POSTGRES_HOST_FILE:
+    external: true
+    name: POSTGRES_HOST_FILE_${TAG}
+  POSTGRES_PORT_FILE:
+    external: true
+    name: POSTGRES_PORT_FILE_${TAG}
+  POSTGRES_DB_NAME_FILE:
+    external: true
+    name: POSTGRES_DB_NAME_FILE_${TAG}
+  POSTGRES_SSLMODE_FILE:
+    external: true
+    name: POSTGRES_SSLMODE_FILE_${TAG}
+  GRAFANA_PASSWORD_FILE:
+    external: true
+    name: GRAFANA_PASSWORD_FILE_${TAG}
+  APP_USERNAME_FILE:
+    external: true
+    name: APP_USERNAME_FILE_${TAG}
+  APP_PASSWORD_FILE:
+    external: true
+    name: APP_PASSWORD_FILE_${TAG}
+  DEEPGRAM_API_KEY_FILE:
+    external: true
+    name: DEEPGRAM_API_KEY_FILE_${TAG}
+  GROQ_API_KEY_FILE:
+    external: true
+    name: GROQ_API_KEY_FILE_${TAG}
+  FISH_AUDIO_API_KEY_FILE:
+    external: true
+    name: FISH_AUDIO_API_KEY_FILE_${TAG}
+  GH_CLIENT_ID_FILE:
+    external: true
+    name: GH_CLIENT_ID_FILE_${TAG}
+  GH_CLIENT_SECRET_FILE:
+    external: true
+    name: GH_CLIENT_SECRET_FILE_${TAG}
+  GOOGLE_CLIENT_ID_FILE:
+    external: true
+    name: GOOGLE_CLIENT_ID_FILE_${TAG}
+  GOOGLE_CLIENT_SECRET_FILE:
+    external: true
+    name: GOOGLE_CLIENT_SECRET_FILE_${TAG}
+  ADMIN_TOKEN_FILE:
+    external: true
+    name: ADMIN_TOKEN_FILE_${TAG}
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER_FILE: /run/secrets/POSTGRES_USER_FILE
+      POSTGRES_PASSWORD_FILE: /run/secrets/POSTGRES_PASSWORD_FILE
+      POSTGRES_DB: vox_db
+    secrets:
+      - POSTGRES_USER_FILE
+      - POSTGRES_PASSWORD_FILE
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    configs:
+      - source: postgres_init
+        target: /docker-entrypoint-initdb.d/create.sql
+    networks:
+      - vox_network
+    healthcheck:
+      test:
+        ["CMD-SHELL", "pg_isready -U $$(cat /run/secrets/POSTGRES_USER_FILE)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+  migrate:
+    image: ${DOCKER_REGISTRY}/vox:${TAG}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        /app/goose -dir /app/migrations postgres \
+          "postgres://$(cat /run/secrets/POSTGRES_USER_FILE):$(cat /run/secrets/POSTGRES_PASSWORD_FILE)@db:5432/vox_db?sslmode=$(cat /run/secrets/POSTGRES_SSLMODE_FILE)" \
+          up
+    secrets:
+      - POSTGRES_USER_FILE
+      - POSTGRES_PASSWORD_FILE
+      - POSTGRES_SSLMODE_FILE
+    networks:
+      - vox_network
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+      placement:
+        constraints:
+          - node.role == manager
+
+  loki:
+    image: grafana/loki:3.0.0
+    command: -config.file=/etc/loki/local-config.yaml
+    configs:
+      - source: loki_config
+        target: /etc/loki/local-config.yaml
+    volumes:
+      - loki_data:/loki
+    networks:
+      - vox_network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -q --tries=1 -O- http://localhost:3100/ready || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/GRAFANA_PASSWORD_FILE
+    secrets:
+      - GRAFANA_PASSWORD_FILE
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - vox_network
+
+  vox:
+    image: ${DOCKER_REGISTRY}/vox:${TAG}
+    ports:
+      - "8081:8081"
+    environment:
+      MODE: "${MODE}"
+      LOKI_URL: "http://loki:3100"
+      BASE_URL: "${BASE_URL}"
+      FRONTEND_URL: "${FRONTEND_URL}"
+      GROQ_MODEL: "${GROQ_MODEL}"
+      GROQ_BASE_URL: "${GROQ_BASE_URL}"
+      FISH_AUDIO_BASE_URL: "${FISH_AUDIO_BASE_URL}"
+      DEEPGRAM_BASE_URL: "${DEEPGRAM_BASE_URL}"
+      DEEPGRAM_MODEL: "${DEEPGRAM_MODEL}"
+      GOOGLE_TOKEN_URL: "${GOOGLE_TOKEN_URL}"
+      GITHUB_TOKEN_URL: "${GITHUB_TOKEN_URL}"
+      GOOGLE_USER_INFO_URL: "${GOOGLE_USER_INFO_URL}"
+      GITHUB_USER_INFO_URL: "${GITHUB_USER_INFO_URL}"
+      STORAGE_PATH: "${STORAGE_PATH}"
+    secrets:
+      - APP_USERNAME_FILE
+      - APP_PASSWORD_FILE
+      - DEEPGRAM_API_KEY_FILE
+      - GROQ_API_KEY_FILE
+      - FISH_AUDIO_API_KEY_FILE
+      - JWT_SECRET_FILE
+      - POSTGRES_USER_FILE
+      - POSTGRES_PASSWORD_FILE
+      - POSTGRES_HOST_FILE
+      - POSTGRES_PORT_FILE
+      - POSTGRES_SSLMODE_FILE
+      - GITHUB_CLIENT_ID_FILE
+      - GITHUB_CLIENT_SECRET_FILE
+      - GOOGLE_CLIENT_ID_FILE
+      - GOOGLE_CLIENT_SECRET_FILE
+      - ADMIN_TOKEN_FILE
+    volumes:
+      - app_state:/app/data
+    networks:
+      - vox_network
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+      update_config:
+        parallelism: 1
+        order: start-first
+        failure_action: rollback

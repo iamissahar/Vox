@@ -1,0 +1,56 @@
+version: "2"
+
+formatters:
+  enable:
+    - gofumpt
+  settings:
+    gofumpt:
+      extra-rules: true
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - bodyclose
+    - nilerr
+    - forcetypeassert
+    - contextcheck
+    - fatcontext
+    - unparam
+    - wastedassign
+    - gocritic
+    - errorlint
+    - misspell
+    - godoclint
+    - prealloc
+    - perfsprint
+    - sqlclosecheck
+    - rowserrcheck
+    - dupl
+    - funlen
+    - maintidx
+    - godox
+    - musttag
+    - reassign
+    - unconvert
+    - loggercheck
+  settings:
+    funlen:
+      lines: 120
+      statements: 60
+  exclusions:
+    paths:
+      - "tests/.*"
+    rules:
+      - path: '_test\.go'
+        linters:
+          - funlen
+          - maintidx
+          - dupl
+          - godoclint
+          - unparam
+          - forcetypeassert
+          - contextcheck

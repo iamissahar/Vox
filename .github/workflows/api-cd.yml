@@ -1,0 +1,212 @@
+name: API CD
+
+on:
+  workflow_run:
+    workflows: ["API CI"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Set deploy tag
+        run: echo "TAG=${{ github.event.workflow_run.head_sha }}" >> $GITHUB_ENV
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.REGISTRY_USER }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/app.Dockerfile
+          push: true
+          tags: ${{ secrets.REGISTRY_USER }}/vox:${{ env.TAG }}
+          cache-from: type=gha,scope=vox-prod
+          cache-to: type=gha,mode=max,scope=vox-prod
+
+      - name: Copy compose to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "docker/docker-compose.yml"
+          target: "~/vox_api/"
+          strip_components: 0
+
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          envs: >-
+            TAG,
+            MODE,
+            REGISTRY_USER,
+            REGISTRY_PASSWORD,
+            APP_USERNAME,
+            APP_PASSWORD,
+            JWT_SECRET,
+            POSTGRES_USER,
+            POSTGRES_PASSWORD,
+            POSTGRES_HOST,
+            POSTGRES_PORT,
+            POSTGRES_SSLMODE,
+            GRAFANA_PASSWORD,
+            DEEPGRAM_API_KEY,
+            GROQ_API_KEY,
+            FISH_AUDIO_API_KEY,
+            GH_CLIENT_ID,
+            GH_CLIENT_SECRET,
+            GOOGLE_CLIENT_ID,
+            GOOGLE_CLIENT_SECRET,
+            ADMIN_TOKEN,
+            BASE_URL,
+            FRONTEND_URL,
+            GROQ_MODEL,
+            GROQ_BASE_URL,
+            FISH_AUDIO_BASE_URL,
+            DEEPGRAM_BASE_URL,
+            DEEPGRAM_MODEL,
+            GOOGLE_TOKEN_URL,
+            GH_TOKEN_URL,
+            GOOGLE_USER_INFO_URL,
+            GH_USER_INFO_URL,
+            STORAGE_PATH
+          script: |
+            set -euo pipefail
+
+            echo "$REGISTRY_PASSWORD" | docker login -u "$REGISTRY_USER" --password-stdin
+
+            sync_secret() {
+              local name="${1}_${TAG}"
+              local value="$2"
+              if ! docker secret inspect "$name" >/dev/null 2>&1; then
+                printf '%s' "$value" | docker secret create "$name" -
+              fi
+            }
+
+            sync_secret "APP_USERNAME_FILE"        "$APP_USERNAME"
+            sync_secret "APP_PASSWORD_FILE"        "$APP_PASSWORD"
+            sync_secret "JWT_SECRET_FILE"          "$JWT_SECRET"
+            sync_secret "POSTGRES_USER_FILE"       "$POSTGRES_USER"
+            sync_secret "POSTGRES_PASSWORD_FILE"   "$POSTGRES_PASSWORD"
+            sync_secret "POSTGRES_HOST_FILE"       "$POSTGRES_HOST"
+            sync_secret "POSTGRES_PORT_FILE"       "$POSTGRES_PORT"
+            sync_secret "POSTGRES_SSLMODE_FILE"    "$POSTGRES_SSLMODE"
+            sync_secret "GRAFANA_PASSWORD_FILE"    "$GRAFANA_PASSWORD"
+            sync_secret "DEEPGRAM_API_KEY_FILE"    "$DEEPGRAM_API_KEY"
+            sync_secret "GROQ_API_KEY_FILE"        "$GROQ_API_KEY"
+            sync_secret "FISH_AUDIO_API_KEY_FILE"  "$FISH_AUDIO_API_KEY"
+            sync_secret "GH_CLIENT_ID_FILE"        "$GH_CLIENT_ID"
+            sync_secret "GH_CLIENT_SECRET_FILE"    "$GH_CLIENT_SECRET"
+            sync_secret "GOOGLE_CLIENT_ID_FILE"    "$GOOGLE_CLIENT_ID"
+            sync_secret "GOOGLE_CLIENT_SECRET_FILE" "$GOOGLE_CLIENT_SECRET"
+            sync_secret "ADMIN_TOKEN_FILE"         "$ADMIN_TOKEN"
+
+            cd ~/vox_api
+
+            export DOCKER_REGISTRY="$REGISTRY_USER"
+            export BASE_URL FRONTEND_URL GROQ_MODEL GROQ_BASE_URL
+            export FISH_AUDIO_BASE_URL DEEPGRAM_BASE_URL DEEPGRAM_MODEL
+            export GOOGLE_TOKEN_URL GH_TOKEN_URL
+            export GOOGLE_USER_INFO_URL GH_USER_INFO_URL STORAGE_PATH
+
+            docker stack deploy \
+              --with-registry-auth \
+              --prune \
+              -c docker/docker-compose.yml \
+              vox_stack
+
+            echo "Waiting for vox service to stabilize..."
+
+            MAX_WAIT=30
+            WAIT_COUNT=0
+
+            until [ $WAIT_COUNT -ge $MAX_WAIT ]; do
+              REPLICAS=$(docker service ls \
+                --filter name=vox_stack_vox \
+                --format '{{.Replicas}}')
+
+              FAILED=$(docker service ps vox_stack_vox \
+                --filter "desired-state=running" \
+                --no-trunc \
+                --format '{{.CurrentState}}' \
+                | grep -c "Failed" || true)
+
+              if [ "$REPLICAS" = "2/2" ] && [ "$FAILED" -eq 0 ]; then
+                echo "Deployment healthy — 2/2 replicas running."
+                break
+              fi
+
+              echo "[$WAIT_COUNT/$MAX_WAIT] replicas: $REPLICAS, failed tasks: $FAILED"
+              sleep 10
+              WAIT_COUNT=$((WAIT_COUNT + 1))
+            done
+
+            if [ $WAIT_COUNT -ge $MAX_WAIT ]; then
+              echo "ERROR: Deployment timed out after $((MAX_WAIT * 10))s"
+              exit 1
+            fi
+
+            echo "Cleaning up old secrets..."
+            docker secret ls --format '{{.Name}}' \
+              | grep -E '^(APP_USERNAME_FILE|APP_PASSWORD_FILE|JWT_SECRET_FILE|POSTGRES_USER_FILE|POSTGRES_PASSWORD_FILE|POSTGRES_HOST_FILE|POSTGRES_PORT_FILE|POSTGRES_SSLMODE_FILE|GRAFANA_PASSWORD_FILE|DEEPGRAM_API_KEY_FILE|GROQ_API_KEY_FILE|FISH_AUDIO_API_KEY_FILE|GITHUB_CLIENT_ID_FILE|GITHUB_CLIENT_SECRET_FILE|GOOGLE_CLIENT_ID_FILE|GOOGLE_CLIENT_SECRET_FILE|ADMIN_TOKEN_FILE)_[a-f0-9]{40}$' \
+              | grep -v "_${TAG}$" \
+              | xargs -r docker secret rm \
+              || true
+
+            echo "Cleaning up old images..."
+            docker image prune -f
+        env:
+          TAG: ${{ env.TAG }}
+          REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+          APP_USERNAME: ${{ secrets.APP_USERNAME }}
+          APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          POSTGRES_USER: ${{ vars.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_HOST: ${{ vars.POSTGRES_HOST }}
+          POSTGRES_PORT: ${{ vars.POSTGRES_PORT }}
+          POSTGRES_SSLMODE: ${{ vars.POSTGRES_SSLMODE }}
+          GRAFANA_PASSWORD: ${{ secrets.GRAFANA_PASSWORD }}
+          DEEPGRAM_API_KEY: ${{ secrets.DEEPGRAM_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          FISH_AUDIO_API_KEY: ${{ secrets.FISH_AUDIO_API_KEY }}
+          GH_CLIENT_ID: ${{ secrets.GH_CLIENT_ID }}
+          GH_CLIENT_SECRET: ${{ secrets.GH_CLIENT_SECRET }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+          BASE_URL: ${{ vars.BASE_URL }}
+          FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+          GROQ_MODEL: ${{ vars.GROQ_MODEL }}
+          GROQ_BASE_URL: ${{ vars.GROQ_BASE_URL }}
+          FISH_AUDIO_BASE_URL: ${{ vars.FISH_AUDIO_BASE_URL }}
+          DEEPGRAM_BASE_URL: ${{ vars.DEEPGRAM_BASE_URL }}
+          DEEPGRAM_MODEL: ${{ vars.DEEPGRAM_MODEL }}
+          GOOGLE_TOKEN_URL: ${{ vars.GOOGLE_TOKEN_URL }}
+          GH_TOKEN_URL: ${{ vars.GH_TOKEN_URL }}
+          GOOGLE_USER_INFO_URL: ${{ vars.GOOGLE_USER_INFO_URL }}
+          GH_USER_INFO_URL: ${{ vars.GH_USER_INFO_URL }}
+          STORAGE_PATH: ${{ vars.STORAGE_PATH }}
