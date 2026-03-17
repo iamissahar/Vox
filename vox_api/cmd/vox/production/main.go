@@ -26,6 +26,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -143,9 +144,28 @@ func newPool(ctx context.Context) *pgxpool.Pool {
 		panic(fmt.Errorf("create pgxpool: %w", err))
 	}
 
-	if err := pool.Ping(ctx); err != nil {
-		pool.Close()
-		panic(fmt.Errorf("ping postgres: %w", err))
+	retryInterval := time.Second
+	maxInterval := 32 * time.Second
+	maxRetries := 7
+
+	for i := 0; i < maxRetries; i++ {
+		err = pool.Ping(ctx)
+		if err == nil {
+			return pool // Успешное подключение
+		}
+
+		log.Printf("Failed to connect to postgres (attempt %d/%d): %v. Retrying in %v...", i+1, maxRetries, err, retryInterval)
+
+		select {
+		case <-ctx.Done():
+			pool.Close()
+			panic("context cancelled while connecting to postgres")
+		case <-time.After(retryInterval):
+			retryInterval *= 2
+			if retryInterval > maxInterval {
+				retryInterval = maxInterval
+			}
+		}
 	}
 
 	return pool
