@@ -150,7 +150,7 @@ services:
   vox:
     image: ${DOCKER_REGISTRY}/vox:${TAG}
     ports:
-      - "8081:8081"
+      - "9081:9081"
     environment:
       MODE: "${MODE}"
       LOKI_URL: "http://loki:3100"
