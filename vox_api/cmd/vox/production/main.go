@@ -2,7 +2,7 @@
 // @version         1.0
 // @description     Vox API server
 // @host            api.bogdanantonovich.com
-// @BasePath        /vox
+// @BasePath        /
 // @schemes         https
 
 // @contact.name    Bogdan Antonovich
