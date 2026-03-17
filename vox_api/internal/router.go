@@ -2,6 +2,7 @@ package internal
 
 import (
 	"net/http"
+	"time"
 	"vox/internal/admin/logs"
 	"vox/internal/auth"
 	"vox/internal/hub"
@@ -35,14 +36,32 @@ func recovery(log *zap.Logger) gin.HandlerFunc {
 
 func zaplogger(logger *zap.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		start := time.Now()
+		path := c.Request.URL.Path
+		query := c.Request.URL.RawQuery
+
 		requestLogger := logger.With(
 			zap.String("request_id", uuid.New().String()),
-			zap.String("path", c.Request.URL.Path),
-			zap.String("method", c.Request.Method),
 			zap.String("ip", c.ClientIP()),
 		)
 		c.Set("logger", requestLogger)
+
 		c.Next()
+
+		latency := time.Since(start)
+		status := c.Writer.Status()
+		if query != "" {
+			path = path + "?" + query
+		}
+
+		requestLogger.Info("incoming request",
+			zap.Int("status", status),
+			zap.String("method", c.Request.Method),
+			zap.String("path", path),
+			zap.Duration("latency", latency),
+			zap.String("user_agent", c.Request.UserAgent()),
+			zap.String("errors", c.Errors.ByType(gin.ErrorTypePrivate).String()),
+		)
 	}
 }
 
