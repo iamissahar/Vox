@@ -24,6 +24,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"os"
 	"strconv"
@@ -97,8 +98,8 @@ func newConfig() models.Config {
 	}
 }
 
-func newPool(ctx context.Context, dsn string) *pgxpool.Pool {
-	cfg, err := pgxpool.ParseConfig(dsn)
+func newPool(ctx context.Context) *pgxpool.Pool {
+	cfg, err := pgxpool.ParseConfig("")
 	if err != nil {
 		panic(fmt.Errorf("parse pgxpool config: %w", err))
 	}
@@ -111,7 +112,27 @@ func newPool(ctx context.Context, dsn string) *pgxpool.Pool {
 	if err != nil {
 		panic(fmt.Errorf("invalid PGX_MIN_CONNS: %w", err))
 	}
+	port, err := strconv.Atoi(readFile(getEnv("POSTGRES_PORT_FILE")))
+	if err != nil {
+		panic(fmt.Errorf("invalid POSTGRES_PORT_FILE: %w", err))
+	}
 
+	switch sslmode := readFile(getEnv("POSTGRES_SSLMODE_FILE")); sslmode {
+	case "disable":
+		cfg.ConnConfig.TLSConfig = nil
+	case "require":
+		cfg.ConnConfig.TLSConfig = &tls.Config{
+			InsecureSkipVerify: true,
+		}
+	default:
+		panic(fmt.Errorf("unsupported sslmode: %s", sslmode))
+	}
+
+	cfg.ConnConfig.Password = readFile(getEnv("POSTGRES_PASSWORD_FILE"))
+	cfg.ConnConfig.User = readFile(getEnv("POSTGRES_USER_FILE"))
+	cfg.ConnConfig.Host = readFile(getEnv("POSTGRES_HOST_FILE"))
+	cfg.ConnConfig.Port = uint16(port)
+	cfg.ConnConfig.Database = readFile(getEnv("POSTGRES_DB_NAME_FILE"))
 	cfg.MaxConns = int32(maxcons)
 	cfg.MinConns = int32(mincons)
 	cfg.MaxConnLifetime = time.Hour
@@ -128,23 +149,6 @@ func newPool(ctx context.Context, dsn string) *pgxpool.Pool {
 	}
 
 	return pool
-}
-
-func buildDBURL() string {
-	var b strings.Builder
-	b.WriteString("postgres://")
-	b.WriteString(readFile(getEnv("POSTGRES_USER_FILE")))
-	b.WriteString(":")
-	b.WriteString(readFile(getEnv("POSTGRES_PASSWORD_FILE")))
-	b.WriteString("@")
-	b.WriteString(readFile(getEnv("POSTGRES_HOST_FILE")))
-	b.WriteString(":")
-	b.WriteString(readFile(getEnv("POSTGRES_PORT_FILE")))
-	b.WriteString("/")
-	b.WriteString(readFile(getEnv("POSTGRES_DB_NAME_FILE")))
-	b.WriteString("?sslmode=")
-	b.WriteString(readFile(getEnv("POSTGRES_SSLMODE_FILE")))
-	return b.String()
 }
 
 func newLogger() (*zap.Logger, zap.AtomicLevel, *os.File, *os.File) {
@@ -217,8 +221,6 @@ func main() {
 	defer closeFile(errFile)
 
 	cfg := newConfig()
-	url := buildDBURL()
-	fmt.Println(url)
-	pool := models.Pool{Pool: newPool(context.Background(), buildDBURL())}
+	pool := models.Pool{Pool: newPool(context.Background())}
 	internal.NewRouter(&cfg, &pool, logger, atom)
 }
