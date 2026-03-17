@@ -5,9 +5,6 @@ networks:
     driver: overlay
 
 configs:
-  postgres_init:
-    external: true
-    name: postgres_init_${TAG}
   loki_config:
     external: true
     name: loki_config_${TAG}
@@ -80,9 +77,6 @@ services:
       - POSTGRES_PASSWORD_FILE
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    configs:
-      - source: postgres_init
-        target: /docker-entrypoint-initdb.d/create.sql
     networks:
       - vox_network
     healthcheck:
