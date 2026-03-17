@@ -21,7 +21,7 @@ jobs:
           ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Set deploy tag
-        run: echo "TAG=${{ github.event.workflow_run.head_sha }}" >> $GITHUB_ENV
+        run: echo "TAG=$(echo ${{ github.event.workflow_run.head_sha }} | cut -c1-8)" >> $GITHUB_ENV
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -92,8 +92,6 @@ jobs:
             STORAGE_PATH
           script: |
             set -euo pipefail
-
-            export TAG="${TAG:0:8}"
 
             echo "$REGISTRY_PASSWORD" | docker login -u "$REGISTRY_USER" --password-stdin
 
@@ -185,9 +183,16 @@ jobs:
 
             echo "Cleaning up old secrets..."
             docker secret ls --format '{{.Name}}' \
-              | grep -E '^(JWT_SECRET_FILE|POSTGRES_USER_FILE|POSTGRES_PASSWORD_FILE|POSTGRES_HOST_FILE|POSTGRES_PORT_FILE|POSTGRES_SSLMODE_FILE|GRAFANA_PASSWORD_FILE|DEEPGRAM_API_KEY_FILE|GROQ_API_KEY_FILE|FISH_AUDIO_API_KEY_FILE|GH_CLIENT_ID_FILE|GH_CLIENT_SECRET_FILE|GOOGLE_CLIENT_ID_FILE|GOOGLE_CLIENT_SECRET_FILE|ADMIN_TOKEN_FILE)_[a-f0-9]{8}$' \
+              | grep -E '^(JWT_SECRET_FILE|POSTGRES_USER_FILE|POSTGRES_PASSWORD_FILE|POSTGRES_HOST_FILE|POSTGRES_PORT_FILE|POSTGRES_SSLMODE_FILE|POSTGRES_DB_NAME_FILE|GRAFANA_PASSWORD_FILE|DEEPGRAM_API_KEY_FILE|GROQ_API_KEY_FILE|FISH_AUDIO_API_KEY_FILE|GH_CLIENT_ID_FILE|GH_CLIENT_SECRET_FILE|GOOGLE_CLIENT_ID_FILE|GOOGLE_CLIENT_SECRET_FILE|ADMIN_TOKEN_FILE)_[a-f0-9]{8}$' \
               | grep -v "_${TAG}$" \
               | xargs -r docker secret rm \
+              || true
+
+            echo "Cleaning up old configs..."
+            docker config ls --format '{{.Name}}' \
+              | grep -E '^loki_config_[a-f0-9]{8}$' \
+              | grep -v "_${TAG}$" \
+              | xargs -r docker config rm \
               || true
 
             echo "Cleaning up old images..."
