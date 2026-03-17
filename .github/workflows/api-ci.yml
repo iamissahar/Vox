@@ -5,6 +5,7 @@ on:
     paths:
       - "vox_api/**"
       - ".github/workflows/api-ci.yml"
+      - ".github/workflows/api-cd.yml"
   pull_request:
     paths:
       - "vox_api/**"
