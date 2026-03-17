@@ -21,18 +21,23 @@ jobs:
   quality-gate:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: vox_api
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: vox_api/go.mod
           cache: true
+          cache-dependency-path: vox_api/go.sum
 
       - name: Lint
         uses: golangci/golangci-lint-action@v6
         with:
           version: v1.64.x
+          working-directory: vox_api
 
       - name: Check go mod tidy
         run: |
@@ -49,13 +54,17 @@ jobs:
     needs: quality-gate
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: vox_api
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: vox_api/go.mod
           cache: true
+          cache-dependency-path: vox_api/go.sum
 
       - name: Run Unit Tests
         run: go test -race -count=1 -tags=unit -coverprofile=coverage.out ./...
@@ -63,20 +72,24 @@ jobs:
       - name: Upload coverage
         uses: codecov/codecov-action@v4
         with:
-          files: coverage.out
+          files: vox_api/coverage.out
           flags: unit
 
   integration-tests:
     needs: quality-gate
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: vox_api
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: vox_api/go.mod
           cache: true
+          cache-dependency-path: vox_api/go.sum
 
       - name: Run Integration Tests
         run: go test -race -count=1 -tags=integration ./...

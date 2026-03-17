@@ -35,8 +35,8 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: .
-          file: docker/app.Dockerfile
+          context: vox_api
+          file: vox_api/docker/app.Dockerfile
           push: true
           tags: ${{ secrets.REGISTRY_USER }}/vox:${{ env.TAG }}
           cache-from: type=gha,scope=vox-prod
@@ -48,9 +48,9 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          source: "docker/docker-compose.yml"
+          source: "vox_api/docker/docker-compose.yml"
           target: "~/vox_api/"
-          strip_components: 0
+          strip_components: 1
 
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.0.3
@@ -60,7 +60,6 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           envs: >-
             TAG,
-            MODE,
             REGISTRY_USER,
             REGISTRY_PASSWORD,
             APP_USERNAME,
@@ -105,23 +104,23 @@ jobs:
               fi
             }
 
-            sync_secret "APP_USERNAME_FILE"        "$APP_USERNAME"
-            sync_secret "APP_PASSWORD_FILE"        "$APP_PASSWORD"
-            sync_secret "JWT_SECRET_FILE"          "$JWT_SECRET"
-            sync_secret "POSTGRES_USER_FILE"       "$POSTGRES_USER"
-            sync_secret "POSTGRES_PASSWORD_FILE"   "$POSTGRES_PASSWORD"
-            sync_secret "POSTGRES_HOST_FILE"       "$POSTGRES_HOST"
-            sync_secret "POSTGRES_PORT_FILE"       "$POSTGRES_PORT"
-            sync_secret "POSTGRES_SSLMODE_FILE"    "$POSTGRES_SSLMODE"
-            sync_secret "GRAFANA_PASSWORD_FILE"    "$GRAFANA_PASSWORD"
-            sync_secret "DEEPGRAM_API_KEY_FILE"    "$DEEPGRAM_API_KEY"
-            sync_secret "GROQ_API_KEY_FILE"        "$GROQ_API_KEY"
-            sync_secret "FISH_AUDIO_API_KEY_FILE"  "$FISH_AUDIO_API_KEY"
-            sync_secret "GH_CLIENT_ID_FILE"        "$GH_CLIENT_ID"
-            sync_secret "GH_CLIENT_SECRET_FILE"    "$GH_CLIENT_SECRET"
-            sync_secret "GOOGLE_CLIENT_ID_FILE"    "$GOOGLE_CLIENT_ID"
+            sync_secret "APP_USERNAME_FILE"         "$APP_USERNAME"
+            sync_secret "APP_PASSWORD_FILE"         "$APP_PASSWORD"
+            sync_secret "JWT_SECRET_FILE"           "$JWT_SECRET"
+            sync_secret "POSTGRES_USER_FILE"        "$POSTGRES_USER"
+            sync_secret "POSTGRES_PASSWORD_FILE"    "$POSTGRES_PASSWORD"
+            sync_secret "POSTGRES_HOST_FILE"        "$POSTGRES_HOST"
+            sync_secret "POSTGRES_PORT_FILE"        "$POSTGRES_PORT"
+            sync_secret "POSTGRES_SSLMODE_FILE"     "$POSTGRES_SSLMODE"
+            sync_secret "GRAFANA_PASSWORD_FILE"     "$GRAFANA_PASSWORD"
+            sync_secret "DEEPGRAM_API_KEY_FILE"     "$DEEPGRAM_API_KEY"
+            sync_secret "GROQ_API_KEY_FILE"         "$GROQ_API_KEY"
+            sync_secret "FISH_AUDIO_API_KEY_FILE"   "$FISH_AUDIO_API_KEY"
+            sync_secret "GH_CLIENT_ID_FILE"         "$GH_CLIENT_ID"
+            sync_secret "GH_CLIENT_SECRET_FILE"     "$GH_CLIENT_SECRET"
+            sync_secret "GOOGLE_CLIENT_ID_FILE"     "$GOOGLE_CLIENT_ID"
             sync_secret "GOOGLE_CLIENT_SECRET_FILE" "$GOOGLE_CLIENT_SECRET"
-            sync_secret "ADMIN_TOKEN_FILE"         "$ADMIN_TOKEN"
+            sync_secret "ADMIN_TOKEN_FILE"          "$ADMIN_TOKEN"
 
             cd ~/vox_api
 
@@ -170,7 +169,7 @@ jobs:
 
             echo "Cleaning up old secrets..."
             docker secret ls --format '{{.Name}}' \
-              | grep -E '^(APP_USERNAME_FILE|APP_PASSWORD_FILE|JWT_SECRET_FILE|POSTGRES_USER_FILE|POSTGRES_PASSWORD_FILE|POSTGRES_HOST_FILE|POSTGRES_PORT_FILE|POSTGRES_SSLMODE_FILE|GRAFANA_PASSWORD_FILE|DEEPGRAM_API_KEY_FILE|GROQ_API_KEY_FILE|FISH_AUDIO_API_KEY_FILE|GITHUB_CLIENT_ID_FILE|GITHUB_CLIENT_SECRET_FILE|GOOGLE_CLIENT_ID_FILE|GOOGLE_CLIENT_SECRET_FILE|ADMIN_TOKEN_FILE)_[a-f0-9]{40}$' \
+              | grep -E '^(APP_USERNAME_FILE|APP_PASSWORD_FILE|JWT_SECRET_FILE|POSTGRES_USER_FILE|POSTGRES_PASSWORD_FILE|POSTGRES_HOST_FILE|POSTGRES_PORT_FILE|POSTGRES_SSLMODE_FILE|GRAFANA_PASSWORD_FILE|DEEPGRAM_API_KEY_FILE|GROQ_API_KEY_FILE|FISH_AUDIO_API_KEY_FILE|GH_CLIENT_ID_FILE|GH_CLIENT_SECRET_FILE|GOOGLE_CLIENT_ID_FILE|GOOGLE_CLIENT_SECRET_FILE|ADMIN_TOKEN_FILE)_[a-f0-9]{40}$' \
               | grep -v "_${TAG}$" \
               | xargs -r docker secret rm \
               || true
