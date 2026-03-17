@@ -34,6 +34,8 @@ import (
 	lokisync "vox/pkg/loki"
 	"vox/pkg/models"
 
+	_ "vox/docs"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
