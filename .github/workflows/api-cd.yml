@@ -98,6 +98,7 @@ jobs:
               local name="${1}_${TAG}"
               local value="$2"
               if ! docker secret inspect "$name" >/dev/null 2>&1; then
+                echo "Creating secret: $name (length: ${#name})"
                 printf '%s' "$value" | docker secret create "$name" -
               fi
             }
