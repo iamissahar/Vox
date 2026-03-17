@@ -217,6 +217,8 @@ func main() {
 	defer closeFile(errFile)
 
 	cfg := newConfig()
+	url := buildDBURL()
+	fmt.Println(url)
 	pool := models.Pool{Pool: newPool(context.Background(), buildDBURL())}
 	internal.NewRouter(&cfg, &pool, logger, atom)
 }
