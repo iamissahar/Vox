@@ -73,19 +73,20 @@ func getEnv(key string) string {
 
 func newConfig() models.Config {
 	return models.Config{
-		JWTSecret:          readFile("JWT_SECRET_FILE"),
+		JWTSecret:          readFile(getEnv("JWT_SECRET_FILE")),
+		GithubClientID:     readFile(getEnv("GH_CLIENT_ID_FILE")),
+		GithubClientSecret: readFile(getEnv("GH_CLIENT_SECRET_FILE")),
+		GoogleClientID:     readFile(getEnv("GOOGLE_CLIENT_ID_FILE")),
+		GoogleClientSecret: readFile(getEnv("GOOGLE_CLIENT_SECRET_FILE")),
+		GroqAPIKey:         readFile(getEnv("GROQ_API_KEY_FILE")),
+		FishAudioAPIKey:    readFile(getEnv("FISH_AUDIO_API_KEY_FILE")),
+		DeepgramAPIKey:     readFile(getEnv("DEEPGRAM_API_KEY_FILE")),
+		AdminToken:         readFile(getEnv("ADMIN_TOKEN_FILE")),
 		BaseURL:            getEnv("BASE_URL"),
-		GithubClientID:     readFile("GITHUB_CLIENT_ID_FILE"),
-		GithubClientSecret: readFile("GITHUB_CLIENT_SECRET_FILE"),
-		GoogleClientID:     readFile("GOOGLE_CLIENT_ID_FILE"),
-		GoogleClientSecret: readFile("GOOGLE_CLIENT_SECRET_FILE"),
 		FrontendURL:        getEnv("FRONTEND_URL"),
 		GroqModel:          getEnv("GROQ_MODEL"),
-		GroqAPIKey:         readFile("GROQ_API_KEY_FILE"),
 		GroqBaseURL:        getEnv("GROQ_BASE_URL"),
-		FishAudioAPIKey:    readFile("FISH_AUDIO_API_KEY_FILE"),
 		FishAudioBaseURL:   getEnv("FISH_AUDIO_BASE_URL"),
-		DeepgramAPIKey:     readFile("DEEPGRAM_API_KEY_FILE"),
 		DeepgramBaseURL:    getEnv("DEEPGRAM_BASE_URL"),
 		DeepgramModel:      getEnv("DEEPGRAM_MODEL"),
 		GoogleTokenURL:     getEnv("GOOGLE_TOKEN_URL"),
@@ -93,7 +94,6 @@ func newConfig() models.Config {
 		GoogleUserInfoURL:  getEnv("GOOGLE_USER_INFO_URL"),
 		GithubUserInfoURL:  getEnv("GH_USER_INFO_URL"),
 		StoragePath:        getEnv("STORAGE_PATH"),
-		AdminToken:         readFile("ADMIN_TOKEN_FILE"),
 	}
 }
 
