@@ -60,7 +60,7 @@ func readFile(filepath string) string {
 	if err != nil {
 		panic(err)
 	}
-	return string(body)
+	return strings.TrimSpace(string(body))
 }
 
 func getEnv(key string) string {
