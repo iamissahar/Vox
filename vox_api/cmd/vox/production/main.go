@@ -26,7 +26,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -95,7 +94,7 @@ func newConfig() models.Config {
 	}
 }
 
-func newPool(ctx context.Context) *pgxpool.Pool {
+func newPool(ctx context.Context, log *zap.Logger) *pgxpool.Pool {
 	cfg, err := pgxpool.ParseConfig("")
 	if err != nil {
 		panic(fmt.Errorf("parse pgxpool config: %w", err))
@@ -147,10 +146,10 @@ func newPool(ctx context.Context) *pgxpool.Pool {
 	for i := 0; i < maxRetries; i++ {
 		err = pool.Ping(ctx)
 		if err == nil {
-			return pool // Успешное подключение
+			return pool
 		}
 
-		log.Printf("Failed to connect to postgres (attempt %d/%d): %v. Retrying in %v...", i+1, maxRetries, err, retryInterval)
+		log.Debug("Failed to connect to postgres", zap.Int("attempt", i+1), zap.Int("max_attempts", maxRetries), zap.Error(err), zap.Duration("retry_interval", retryInterval))
 
 		select {
 		case <-ctx.Done():
@@ -164,7 +163,7 @@ func newPool(ctx context.Context) *pgxpool.Pool {
 		}
 	}
 
-	return pool
+	panic("failed to connect to postgres after retries")
 }
 
 func newLogger() (*zap.Logger, zap.AtomicLevel, *os.File, *os.File) {
@@ -237,6 +236,6 @@ func main() {
 	defer closeFile(errFile)
 
 	cfg := newConfig()
-	pool := models.Pool{Pool: newPool(context.Background())}
+	pool := models.Pool{Pool: newPool(context.Background(), logger)}
 	internal.NewRouter(&cfg, &pool, logger, atom)
 }
