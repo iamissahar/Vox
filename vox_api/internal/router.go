@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"context"
 	"net/http"
 	"time"
 	"vox/internal/admin/logs"
@@ -10,10 +11,14 @@ import (
 	"vox/internal/user/voice"
 	"vox/pkg/models"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
+	limiter "github.com/ulule/limiter/v3"
+	mgin "github.com/ulule/limiter/v3/drivers/middleware/gin"
+	"github.com/ulule/limiter/v3/drivers/store/memory"
 	"go.uber.org/zap"
 )
 
@@ -65,11 +70,47 @@ func zaplogger(logger *zap.Logger) gin.HandlerFunc {
 	}
 }
 
+// healthHandler godoc
+// @Summary      Health check
+// @Tags         service
+// @Success      200
+// @Router       /health [get]
+func healthHandler(ctx *gin.Context) {
+	ctx.Status(http.StatusOK)
+}
+
+func timeout(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
+	defer cancel()
+	c.Request = c.Request.WithContext(ctx)
+	c.Next()
+}
+
 func NewRouter(cfg *models.Config, pool *models.Pool, logger *zap.Logger, atom zap.AtomicLevel) {
 	engine := gin.New()
 
 	engine.Use(zaplogger(logger))
 	engine.Use(recovery(logger))
+	engine.Use(cors.New(cors.Config{
+		AllowOrigins: []string{
+			"https://bogdanantonovich.com",
+			"https://www.bogdanantonovich.com",
+		},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Content-Type", "Authorization"},
+		AllowCredentials: true,
+		MaxAge:           86400 * time.Second,
+	}))
+	rate, _ := limiter.NewRateFromFormatted("100-M")
+	store := memory.NewStore()
+	engine.Use(mgin.NewMiddleware(limiter.New(store, rate)))
+	engine.Use(func(c *gin.Context) {
+		c.Header("X-Content-Type-Options", "nosniff")
+		c.Header("X-Frame-Options", "DENY")
+		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
+		c.Header("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		c.Next()
+	})
 
 	userAPI := user.UserAPI{DB: user.NewUserDB(pool)}
 	authAPI := auth.AuthAPI{DB: auth.NewAuthDB(pool), Cfg: cfg}
@@ -79,6 +120,7 @@ func NewRouter(cfg *models.Config, pool *models.Pool, logger *zap.Logger, atom z
 
 	// public routes
 	authGroup := engine.Group("/auth")
+	authGroup.Use(timeout)
 	{
 		providerGroup := authGroup.Group("/:provider")
 		{
@@ -98,7 +140,11 @@ func NewRouter(cfg *models.Config, pool *models.Pool, logger *zap.Logger, atom z
 		privateHubGroup.Use(hubAPI.FishSDK)
 		{
 			privateHubGroup.POST("/publish", hubAPI.PublishHandler)
-			privateHubGroup.POST("/new", hubAPI.NewHubHandler)
+			privateHubGroup2 := privateHubGroup.Group("/")
+			privateHubGroup2.Use(timeout)
+			{
+				privateHubGroup2.POST("/new", hubAPI.NewHubHandler)
+			}
 		}
 		hubGroup.GET("/listen", hubAPI.ListenHandler)
 	}
@@ -106,7 +152,7 @@ func NewRouter(cfg *models.Config, pool *models.Pool, logger *zap.Logger, atom z
 	userGroup := engine.Group("/user")
 	userGroup.Use(authAPI.IsAuthorized)
 	{
-		userGroup.GET("/info", userAPI.InfoHandler)
+		userGroup.GET("/info", timeout, userAPI.InfoHandler)
 		voiceGroup := userGroup.Group("/voice")
 		{
 			voiceGroup.POST("/new", voiceAPI.ReferenceHandler)
@@ -114,11 +160,18 @@ func NewRouter(cfg *models.Config, pool *models.Pool, logger *zap.Logger, atom z
 	}
 
 	// helpers and admin routes
-	engine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
-	adminGroup := engine.Group("/")
-	adminGroup.Use(authAPI.IsAdmin)
+	helpersGroup := engine.Group("/")
+	helpersGroup.Use(timeout)
 	{
-		adminGroup.PUT("/admin/logs/level", logsAPI.LevelHandler)
+		helpersGroup.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+		helpersGroup.GET("/health", func(ctx *gin.Context) {
+			ctx.Status(http.StatusOK)
+		})
+		adminGroup := helpersGroup.Group("/admin")
+		adminGroup.Use(authAPI.IsAdmin)
+		{
+			adminGroup.PUT("/logs/level", logsAPI.LevelHandler)
+		}
 	}
 
 	logger.Info("API started", zap.String("env", "prod"), zap.Int("port", 9081))

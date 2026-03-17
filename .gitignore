@@ -1,0 +1,5 @@
+vox_web/node_modules
+vox_web/dist
+vox_web/.env
+vox_web/.env.local
+vox_web/.DS_Store

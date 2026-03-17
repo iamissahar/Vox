@@ -1,0 +1,117 @@
+name: Web CD
+
+on:
+  workflow_run:
+    workflows: ["Web CI"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Set deploy tag
+        run: echo "TAG=$(echo ${{ github.event.workflow_run.head_sha }} | cut -c1-8)" >> $GITHUB_ENV
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.REGISTRY_USER }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: vox_web
+          file: vox_web/docker/prod.Dockerfile
+          push: true
+          tags: ${{ secrets.REGISTRY_USER }}/vox-web:${{ env.TAG }}
+          cache-from: type=gha,scope=vox-web-prod
+          cache-to: type=gha,mode=max,scope=vox-web-prod
+
+      - name: Copy nginx config to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "vox_web/docker/docker-compose.yml,vox_web/docker/nginx.conf"
+          target: "~/vox_web/"
+          strip_components: 2
+
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -euo pipefail
+
+            echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login \
+              -u "${{ secrets.REGISTRY_USER }}" --password-stdin
+
+            cd ~/vox_web
+
+            export TAG="${{ env.TAG }}"
+            export DOCKER_REGISTRY="${{ secrets.REGISTRY_USER }}"
+
+            envsubst < docker-compose.yml > docker-compose.resolved.yml
+
+            docker stack deploy \
+              --with-registry-auth \
+              --prune \
+              -c docker-compose.resolved.yml \
+              vox_web_stack
+
+            docker service update \
+              --force \
+              --image ${{ secrets.REGISTRY_USER }}/vox-web:${{ env.TAG }} \
+              vox_web_stack_web
+
+            echo "Waiting for web service to stabilize..."
+
+            MAX_WAIT=30
+            WAIT_COUNT=0
+
+            until [ $WAIT_COUNT -ge $MAX_WAIT ]; do
+              REPLICAS=$(docker service ls \
+                --filter name=vox_web_stack_web \
+                --format '{{.Replicas}}')
+
+              FAILED=$(docker service ps vox_web_stack_web \
+                --filter "desired-state=running" \
+                --no-trunc \
+                --format '{{.CurrentState}}' \
+                | grep -c "Failed" || true)
+
+              if [ "$REPLICAS" = "2/2" ] && [ "$FAILED" -eq 0 ]; then
+                echo "Deployment healthy — 2/2 replicas running."
+                break
+              fi
+
+              echo "[$WAIT_COUNT/$MAX_WAIT] replicas: $REPLICAS, failed tasks: $FAILED"
+              sleep 10
+              WAIT_COUNT=$((WAIT_COUNT + 1))
+            done
+
+            if [ $WAIT_COUNT -ge $MAX_WAIT ]; then
+              echo "ERROR: Deployment timed out after $((MAX_WAIT * 10))s"
+              exit 1
+            fi
+
+            echo "Cleaning up old images..."
+            docker image prune -f

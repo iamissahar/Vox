@@ -6,6 +6,7 @@ require (
 	github.com/bytedance/sonic v1.15.0
 	github.com/deepgram/deepgram-go-sdk/v3 v3.5.0
 	github.com/fishaudio/fish-audio-go v1.0.0
+	github.com/gin-contrib/cors v1.7.6
 	github.com/gin-gonic/gin v1.10.1
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
@@ -18,6 +19,7 @@ require (
 	github.com/swaggo/gin-swagger v1.6.1
 	github.com/swaggo/swag v1.16.6
 	github.com/testcontainers/testcontainers-go v0.40.0
+	github.com/ulule/limiter/v3 v3.11.2
 	go.uber.org/zap v1.27.1
 	golang.org/x/crypto v0.48.0
 	golang.org/x/oauth2 v0.35.0
