@@ -62,8 +62,6 @@ jobs:
             TAG,
             REGISTRY_USER,
             REGISTRY_PASSWORD,
-            APP_USERNAME,
-            APP_PASSWORD,
             JWT_SECRET,
             POSTGRES_USER,
             POSTGRES_PASSWORD,
@@ -104,8 +102,6 @@ jobs:
               fi
             }
 
-            sync_secret "APP_USERNAME_FILE"         "$APP_USERNAME"
-            sync_secret "APP_PASSWORD_FILE"         "$APP_PASSWORD"
             sync_secret "JWT_SECRET_FILE"           "$JWT_SECRET"
             sync_secret "POSTGRES_USER_FILE"        "$POSTGRES_USER"
             sync_secret "POSTGRES_PASSWORD_FILE"    "$POSTGRES_PASSWORD"
@@ -169,7 +165,7 @@ jobs:
 
             echo "Cleaning up old secrets..."
             docker secret ls --format '{{.Name}}' \
-              | grep -E '^(APP_USERNAME_FILE|APP_PASSWORD_FILE|JWT_SECRET_FILE|POSTGRES_USER_FILE|POSTGRES_PASSWORD_FILE|POSTGRES_HOST_FILE|POSTGRES_PORT_FILE|POSTGRES_SSLMODE_FILE|GRAFANA_PASSWORD_FILE|DEEPGRAM_API_KEY_FILE|GROQ_API_KEY_FILE|FISH_AUDIO_API_KEY_FILE|GH_CLIENT_ID_FILE|GH_CLIENT_SECRET_FILE|GOOGLE_CLIENT_ID_FILE|GOOGLE_CLIENT_SECRET_FILE|ADMIN_TOKEN_FILE)_[a-f0-9]{40}$' \
+              | grep -E '^(JWT_SECRET_FILE|POSTGRES_USER_FILE|POSTGRES_PASSWORD_FILE|POSTGRES_HOST_FILE|POSTGRES_PORT_FILE|POSTGRES_SSLMODE_FILE|GRAFANA_PASSWORD_FILE|DEEPGRAM_API_KEY_FILE|GROQ_API_KEY_FILE|FISH_AUDIO_API_KEY_FILE|GH_CLIENT_ID_FILE|GH_CLIENT_SECRET_FILE|GOOGLE_CLIENT_ID_FILE|GOOGLE_CLIENT_SECRET_FILE|ADMIN_TOKEN_FILE)_[a-f0-9]{40}$' \
               | grep -v "_${TAG}$" \
               | xargs -r docker secret rm \
               || true
@@ -180,8 +176,6 @@ jobs:
           TAG: ${{ env.TAG }}
           REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
           REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
-          APP_USERNAME: ${{ secrets.APP_USERNAME }}
-          APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           POSTGRES_USER: ${{ vars.POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}

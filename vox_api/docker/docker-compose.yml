@@ -43,12 +43,6 @@ secrets:
   GRAFANA_PASSWORD_FILE:
     external: true
     name: GRAFANA_PASSWORD_FILE_${TAG}
-  APP_USERNAME_FILE:
-    external: true
-    name: APP_USERNAME_FILE_${TAG}
-  APP_PASSWORD_FILE:
-    external: true
-    name: APP_PASSWORD_FILE_${TAG}
   DEEPGRAM_API_KEY_FILE:
     external: true
     name: DEEPGRAM_API_KEY_FILE_${TAG}
@@ -178,8 +172,6 @@ services:
       GITHUB_USER_INFO_URL: "${GITHUB_USER_INFO_URL}"
       STORAGE_PATH: "${STORAGE_PATH}"
     secrets:
-      - APP_USERNAME_FILE
-      - APP_PASSWORD_FILE
       - DEEPGRAM_API_KEY_FILE
       - GROQ_API_KEY_FILE
       - FISH_AUDIO_API_KEY_FILE
