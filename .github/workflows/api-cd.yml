@@ -187,6 +187,7 @@ jobs:
           POSTGRES_HOST: ${{ vars.POSTGRES_HOST }}
           POSTGRES_PORT: ${{ vars.POSTGRES_PORT }}
           POSTGRES_SSLMODE: ${{ vars.POSTGRES_SSLMODE }}
+          POSTGRES_DB_NAME: ${{ vars.POSTGRES_DB_NAME }}
           GRAFANA_PASSWORD: ${{ secrets.GRAFANA_PASSWORD }}
           DEEPGRAM_API_KEY: ${{ secrets.DEEPGRAM_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}

@@ -102,12 +102,13 @@ services:
     command:
       - |
         /app/goose -dir /app/migrations postgres \
-          "postgres://$(cat /run/secrets/POSTGRES_USER_FILE):$(cat /run/secrets/POSTGRES_PASSWORD_FILE)@db:5432/vox_db?sslmode=$(cat /run/secrets/POSTGRES_SSLMODE_FILE)" \
+          "postgres://$$(cat /run/secrets/POSTGRES_USER_FILE):$$(cat /run/secrets/POSTGRES_PASSWORD_FILE)@db:5432/$$(cat /run/secrets/POSTGRES_DB_NAME_FILE)?sslmode=$$(cat /run/secrets/POSTGRES_SSLMODE_FILE)" \
           up
     secrets:
       - POSTGRES_USER_FILE
       - POSTGRES_PASSWORD_FILE
       - POSTGRES_SSLMODE_FILE
+      - POSTGRES_DB_NAME_FILE
     networks:
       - vox_network
     deploy:
@@ -140,7 +141,7 @@ services:
       retries: 5
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:11.5.2
     ports:
       - "3000:3000"
     environment:
@@ -167,11 +168,12 @@ services:
       DEEPGRAM_BASE_URL: "${DEEPGRAM_BASE_URL}"
       DEEPGRAM_MODEL: "${DEEPGRAM_MODEL}"
       GOOGLE_TOKEN_URL: "${GOOGLE_TOKEN_URL}"
-      GITHUB_TOKEN_URL: "${GITHUB_TOKEN_URL}"
+      GH_TOKEN_URL: "${GH_TOKEN_URL}"
       GOOGLE_USER_INFO_URL: "${GOOGLE_USER_INFO_URL}"
-      GITHUB_USER_INFO_URL: "${GITHUB_USER_INFO_URL}"
+      GH_USER_INFO_URL: "${GH_USER_INFO_URL}"
       STORAGE_PATH: "${STORAGE_PATH}"
     secrets:
+      - POSTGRES_DB_NAME_FILE
       - DEEPGRAM_API_KEY_FILE
       - GROQ_API_KEY_FILE
       - FISH_AUDIO_API_KEY_FILE
@@ -181,8 +183,8 @@ services:
       - POSTGRES_HOST_FILE
       - POSTGRES_PORT_FILE
       - POSTGRES_SSLMODE_FILE
-      - GITHUB_CLIENT_ID_FILE
-      - GITHUB_CLIENT_SECRET_FILE
+      - GH_CLIENT_ID_FILE
+      - GH_CLIENT_SECRET_FILE
       - GOOGLE_CLIENT_ID_FILE
       - GOOGLE_CLIENT_SECRET_FILE
       - ADMIN_TOKEN_FILE
