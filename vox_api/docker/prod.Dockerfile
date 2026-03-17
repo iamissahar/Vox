@@ -20,8 +20,8 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
 FROM alpine:3.21 AS final
 RUN apk add --no-cache ca-certificates
 WORKDIR /app
-RUN mkdir -p /app/logs
-RUN mkdir -p /app/storage
+RUN mkdir -p /logs
+RUN mkdir -p /storage
 COPY --from=builder /bin/vox ./vox
 COPY --from=tools /go/bin/goose ./goose
 COPY --from=builder /app/db/migrations ./db/migrations
