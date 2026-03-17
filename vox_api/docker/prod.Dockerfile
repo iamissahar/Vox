@@ -25,5 +25,6 @@ RUN mkdir -p /storage
 COPY --from=builder /bin/vox ./vox
 COPY --from=tools /go/bin/goose ./goose
 COPY --from=builder /app/db/migrations ./db/migrations
+COPY --from=builder /app/docs ./docs
 EXPOSE 8081
 ENTRYPOINT ["./vox"]
