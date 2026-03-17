@@ -1,0 +1,433 @@
+basePath: /
+definitions:
+  auth.loginPayload:
+    properties:
+      login:
+        type: string
+      password:
+        type: string
+    type: object
+  auth.signUpPayload:
+    properties:
+      email:
+        type: string
+      login:
+        type: string
+      name:
+        type: string
+      password:
+        type: string
+    type: object
+  logs.LevelRequest:
+    properties:
+      level:
+        type: string
+    type: object
+  models.HttpErrorResponse:
+    properties:
+      error:
+        properties:
+          code:
+            type: integer
+          message:
+            type: string
+        type: object
+    type: object
+  user.UserInfo:
+    properties:
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      picture:
+        type: string
+    type: object
+host: api.bogdanantonovich.com
+info:
+  contact:
+    email: programjibogdan@gmail.com
+    name: Bogdan Antonovich
+  description: Vox API server
+  title: Vox AI SI API
+  version: "1.0"
+paths:
+  /admin/logs/level:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Log level (debug, info, warn, error)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/logs.LevelRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.HttpErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.HttpErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.HttpErrorResponse'
+      security:
+      - AdminAuth: []
+      summary: Set log level
+      tags:
+      - admin
+  /auth/{provider}/callback:
+    get:
+      description: Handles the callback from the OAuth2 provider after user authorization.
+        Exchanges the authorization code for a token, retrieves user info, creates
+        the user if not exists, generates a JWT pair and sets them as cookies, then
+        redirects to the frontend.
+      parameters:
+      - description: OAuth2 provider
+        enum:
+        - google
+        - github
+        in: path
+        name: provider
+        required: true
+        type: string
+      - description: Authorization code returned by the provider
+        in: query
+        name: code
+        required: true
+        type: string
+      responses:
+        "307":
+          description: Redirect to the frontend with access and refresh token cookies
+            set
+        "401":
+          description: Failed to exchange authorization code for token
+          schema:
+            $ref: '#/definitions/models.HttpErrorResponse'
+        "404":
+          description: Provider is not supported
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/models.HttpErrorResponse'
+      summary: OAuth2 provider callback
+      tags:
+      - auth
+  /auth/{provider}/login:
+    get:
+      description: Redirects the user to the authorization page of the specified OAuth2
+        provider (google or github)
+      parameters:
+      - description: OAuth2 provider
+        enum:
+        - google
+        - github
+        in: path
+        name: provider
+        required: true
+        type: string
+      responses:
+        "307":
+          description: Redirect to the provider authorization page
+        "404":
+          description: Provider is not supported
+      summary: Login via OAuth2 provider
+      tags:
+      - auth
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticates a user with the provided credentials, generates a
+        JWT pair and sets them as cookies.
+      parameters:
+      - description: Login payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/auth.loginPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Login successful, access and refresh token cookies set
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/models.HttpErrorResponse'
+        "401":
+          description: Invalid credentials
+          schema:
+            $ref: '#/definitions/models.HttpErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/models.HttpErrorResponse'
+      summary: Login with login and password
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      description: Validates the existing access and refresh token cookies, issues
+        a new JWT pair and updates the cookies.
+      parameters:
+      - description: Access token cookie
+        in: header
+        name: access_token
+        required: true
+        type: string
+      - description: Refresh token cookie
+        in: header
+        name: refresh_token
+        required: true
+        type: string
+      responses:
+        "201":
+          description: Token pair refreshed successfully, new cookies set
+        "400":
+          description: Access or refresh token cookie is missing
+          schema:
+            $ref: '#/definitions/models.HttpErrorResponse'
+        "401":
+          description: Refresh token is invalid
+          schema:
+            $ref: '#/definitions/models.HttpErrorResponse'
+        "403":
+          description: Access token is invalid
+          schema:
+            $ref: '#/definitions/models.HttpErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/models.HttpErrorResponse'
+      summary: Refresh JWT token pair
+      tags:
+      - auth
+  /auth/sign_up:
+    post:
+      consumes:
+      - application/json
+      description: Registers a new user with the provided credentials, generates a
+        JWT pair and sets them as cookies.
+      parameters:
+      - description: Sign up payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/auth.signUpPayload'
+      responses:
+        "201":
+          description: User created successfully, access and refresh token cookies
+            set
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/models.HttpErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/models.HttpErrorResponse'
+      summary: Sign up with login and password
+      tags:
+      - auth
+  /hub/{hub_id}/listen:
+    get:
+      description: Subscribes the client to a hub's audio stream and delivers synthesized
+        audio chunks in real-time via chunked transfer encoding. The stream ends when
+        the client disconnects or the hub closes.
+      parameters:
+      - description: Hub ID
+        in: path
+        name: hub_id
+        required: true
+        type: string
+      produces:
+      - audio/mpeg
+      responses:
+        "200":
+          description: Audio stream delivered as chunked audio/mpeg
+        "404":
+          description: Invalid hub ID (IsHubIDValid middleware)
+          schema:
+            $ref: '#/definitions/models.HttpErrorResponse'
+      summary: Listen to audio stream
+      tags:
+      - hub
+  /hub/{hub_id}/new:
+    post:
+      description: Creates a new hub with the given hub ID. Returns a conflict error
+        if a hub with the same ID already exists.
+      parameters:
+      - description: Hub ID
+        in: path
+        name: hub_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Hub created successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Missing or invalid auth cookies (IsAuthorized middleware)
+          schema:
+            $ref: '#/definitions/models.HttpErrorResponse'
+        "404":
+          description: Hub ID is empty or invalid
+          schema:
+            $ref: '#/definitions/models.HttpErrorResponse'
+        "409":
+          description: Hub with the given ID already exists
+          schema:
+            $ref: '#/definitions/models.HttpErrorResponse'
+        "415":
+          description: Invalid content type (IsContentTypeValid middleware)
+          schema:
+            $ref: '#/definitions/models.HttpErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Create a new hub
+      tags:
+      - hub
+  /hub/{hub_id}/publish:
+    post:
+      consumes:
+      - application/octet-stream
+      description: Receives an audio stream, transcribes it via Deepgram, processes
+        the transcription via Groq, and synthesizes speech via Fish Audio. All three
+        operations run concurrently. Requires a valid user and hub in context.
+      parameters:
+      - description: Hub ID
+        in: path
+        name: hub_id
+        required: true
+        type: string
+      - description: Transcription language code (e.g. en, ru)
+        in: path
+        name: lang
+        required: true
+        type: string
+      responses:
+        "200":
+          description: Audio stream processed successfully
+        "401":
+          description: Missing or invalid auth cookies (IsAuthorized middleware)
+          schema:
+            $ref: '#/definitions/models.HttpErrorResponse'
+        "404":
+          description: Invalid user ID or hub
+          schema:
+            $ref: '#/definitions/models.HttpErrorResponse'
+        "415":
+          description: Invalid content type (IsContentTypeValid middleware)
+          schema:
+            $ref: '#/definitions/models.HttpErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/models.HttpErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Publish audio stream
+      tags:
+      - hub
+  /user/info:
+    get:
+      description: Returns the profile information of the authenticated user.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User info returned successfully
+          schema:
+            $ref: '#/definitions/user.UserInfo'
+        "400":
+          description: Invalid user ID
+          schema:
+            $ref: '#/definitions/models.HttpErrorResponse'
+        "401":
+          description: Missing or invalid auth cookies (IsAuthorized middleware)
+          schema:
+            $ref: '#/definitions/models.HttpErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/models.HttpErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Get user info
+      tags:
+      - user
+  /user/voice/new:
+    post:
+      consumes:
+      - application/octet-stream
+      description: Receives a raw audio file (webm) as the request body and saves
+        it as a voice reference for the authenticated user along with the provided
+        reference text.
+      parameters:
+      - description: Reference text associated with the voice sample
+        in: query
+        name: text_ref
+        required: true
+        type: string
+      responses:
+        "200":
+          description: Voice reference uploaded successfully
+        "400":
+          description: Reference text is missing
+          schema:
+            $ref: '#/definitions/models.HttpErrorResponse'
+        "401":
+          description: Missing or invalid auth cookies (IsAuthorized middleware)
+          schema:
+            $ref: '#/definitions/models.HttpErrorResponse'
+        "404":
+          description: Invalid user ID
+          schema:
+            $ref: '#/definitions/models.HttpErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/models.HttpErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Upload voice reference
+      tags:
+      - voice
+schemes:
+- https
+securityDefinitions:
+  AdminAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+  CookieAuth:
+    in: cookie
+    name: access_token
+    type: apiKey
+  CookieAuthRefresh:
+    in: cookie
+    name: refresh_token
+    type: apiKey
+swagger: "2.0"
