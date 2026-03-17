@@ -60,6 +60,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           envs: >-
             TAG,
+            MODE,
             REGISTRY_USER,
             REGISTRY_PASSWORD,
             JWT_SECRET,
@@ -108,6 +109,15 @@ jobs:
               fi
             }
 
+            sync_config() {
+              local name="${1}_${TAG}"
+              local file="$2"
+              if ! docker config inspect "$name" >/dev/null 2>&1; then
+                echo "Creating config: $name"
+                docker config create "$name" "$file"
+              fi
+            }
+
             sync_secret "JWT_SECRET_FILE"           "$JWT_SECRET"
             sync_secret "POSTGRES_USER_FILE"        "$POSTGRES_USER"
             sync_secret "POSTGRES_PASSWORD_FILE"    "$POSTGRES_PASSWORD"
@@ -125,6 +135,8 @@ jobs:
             sync_secret "GOOGLE_CLIENT_SECRET_FILE" "$GOOGLE_CLIENT_SECRET"
             sync_secret "ADMIN_TOKEN_FILE"          "$ADMIN_TOKEN"
 
+            sync_config "loki_config" ~/vox_api/cfg/loki-config.yml
+
             cd ~/vox_api
 
             export TAG="$TAG"
@@ -132,23 +144,14 @@ jobs:
             export BASE_URL FRONTEND_URL GROQ_MODEL GROQ_BASE_URL
             export FISH_AUDIO_BASE_URL DEEPGRAM_BASE_URL DEEPGRAM_MODEL
             export GOOGLE_TOKEN_URL GH_TOKEN_URL
-            export GOOGLE_USER_INFO_URL GH_USER_INFO_URL STORAGE_PATH
+            export GOOGLE_USER_INFO_URL GH_USER_INFO_URL STORAGE_PATH MODE
 
-            sync_config() {
-              local name="${1}_${TAG}"
-              local file="$2"
-              if ! docker config inspect "$name" >/dev/null 2>&1; then
-                echo "Creating config: $name"
-                docker config create "$name" "$file"
-              fi
-            }
-
-            sync_config "loki_config" ~/vox_api/cfg/loki-config.yml
+            envsubst < docker/docker-compose.yml > docker/docker-compose.resolved.yml
 
             docker stack deploy \
               --with-registry-auth \
               --prune \
-              -c docker/docker-compose.yml \
+              -c docker/docker-compose.resolved.yml \
               vox_stack
 
             echo "Waiting for vox service to stabilize..."
@@ -200,6 +203,7 @@ jobs:
             docker image prune -f
         env:
           TAG: ${{ env.TAG }}
+          MODE: ${{ vars.MODE }}
           REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
           REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
