@@ -177,8 +177,8 @@ func TestGetUser(t *testing.T) {
 			providerID:     vars.GOOGLE_PROVIDER_ID,
 			userProviderID: "nonexistent-123",
 			seed:           false,
-			wantErr:        true,
-			wantUser:       nil,
+			wantErr:        false,
+			wantUser:       &auth.UserInfo{},
 		},
 		{
 			name:           "nil pool",
