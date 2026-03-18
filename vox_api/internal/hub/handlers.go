@@ -140,7 +140,7 @@ func (h *HubAPI) NewHubHandler(ctx *gin.Context) {
 // @Tags         hub
 // @Accept       json
 // @Param        hub_id  path  string        true  "Hub ID"
-// @Param        body    body  object{id=string}  true  "User payload"
+// @Param        body    body  object{user_id=string}  true  "User payload"
 // @Success      307  "Temporary redirect to frontend hub publish page"
 // @Failure      400  {object}  models.HttpErrorResponse  "Invalid request body"
 // @Failure      403  {object}  models.HttpErrorResponse  "User is not authenticated or not the hub owner"
@@ -201,7 +201,7 @@ func (h *HubAPI) ReconnectHandler(ctx *gin.Context) {
 // @Tags         hub
 // @Accept       json
 // @Param        hub_id  path  string             true  "Hub ID"
-// @Param        body    body  object{id=string}  true  "User payload"
+// @Param        body    body  object{user_id=string}  true  "User payload"
 // @Success      204  "Hub successfully deleted"
 // @Failure      400  {object}  models.HttpErrorResponse  "Invalid request body"
 // @Failure      403  {object}  models.HttpErrorResponse  "User is not authenticated or not the hub owner"

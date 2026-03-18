@@ -66,7 +66,7 @@ func (u *UserAPI) InfoHandler(ctx *gin.Context) {
 // @Failure      403  {object}  models.HttpErrorResponse  "User is not authenticated"
 // @Failure      500  {object}  models.HttpErrorResponse  "Internal server error"
 // @Security     BearerAuth
-// @Router       /user/hubs [post]
+// @Router       /user/hubs [get]
 func (uapi *UserAPI) HubsHandler(ctx *gin.Context) {
 	log := mod.GetLogger(ctx)
 
