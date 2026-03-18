@@ -37,7 +37,7 @@ func closeReader(rd io.ReadCloser, log *zap.Logger) {
 // @Failure      404  {object}  models.HttpErrorResponse  "Invalid user ID"
 // @Failure      500  {object}  models.HttpErrorResponse  "Internal server error"
 // @Security     CookieAuth
-// @Router       /user/voice/new [post]
+// @Router       /user/voice [post]
 func (v *VoiceAPI) ReferenceHandler(ctx *gin.Context) {
 	log := mod.GetLogger(ctx)
 
