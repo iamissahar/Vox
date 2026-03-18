@@ -332,7 +332,7 @@ const AdminPage: React.FC<AdminPageProps> = ({
     setHubsLoading(true);
     setHubsErr("");
     try {
-      const data = await hubApi.listMine(userId);
+      const data = await hubApi.listMine();
       setHubs(data.hub_ids ?? []);
     } catch {
       setHubsErr("Failed to load hubs.");
@@ -349,7 +349,7 @@ const AdminPage: React.FC<AdminPageProps> = ({
     setCreating(true);
     setHubsErr("");
     try {
-      const data = await hubApi.createAuto(userId);
+      const data = await hubApi.createAuto();
       setHubs((prev) => [data.hub_id, ...prev]);
     } catch (e) {
       if (e instanceof ApiError) {

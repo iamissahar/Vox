@@ -75,34 +75,23 @@ export const user = {
 
 // ─── Hub ─────────────────────────────────────────────────
 export const hub = {
-  // Legacy: create hub with manual ID
-  // create: (hubId: string) =>
-  //   request<Record<string, string>>(`/hub/${hubId}/new`, {
-  //     method: "POST",
-  //   }),
-
-  // New: create hub, server generates ID automatically
-  createAuto: (userId: string) =>
+  // POST /hub — user из куки, body не нужен
+  createAuto: () =>
     request<{ hub_id: string }>("/hub", {
       method: "POST",
-      body: JSON.stringify({ user_id: userId }),
     }),
 
-  // New: list hubs where current user is host
-  listMine: (userId: string) =>
-    request<{ hub_ids: string[] }>("/user/hubs", {
-      method: "POST", // временно POST пока бэк не починит GET+body
-      body: JSON.stringify({ user_id: userId }),
-    }),
+  // GET /user/hubs — user из куки, body не нужен
+  listMine: () => request<{ hub_ids: string[] }>("/user/hubs"),
 
+  // DELETE /hub/{hub_id} — body: { user_id }
   delete: (hubId: string, userId: string) =>
     request<void>(`/hub/${hubId}`, {
-      // убрал trailing slash
       method: "DELETE",
       body: JSON.stringify({ user_id: userId }),
     }),
 
-  // New: reconnect stream (redirects to publish URL)
+  // GET /hub/{hub_id}/reconnect — user из куки, редирект на фронтенд
   reconnect: (hubId: string) => {
     window.location.href = `${BASE_URL}/hub/${hubId}/reconnect`;
   },
