@@ -71,7 +71,7 @@ func zaplogger(logger *zap.Logger) gin.HandlerFunc {
 }
 
 // healthHandler godoc
-// @Summary      Health check
+// @Summary      Health check V2
 // @Tags         service
 // @Success      200
 // @Router       /health [get]
