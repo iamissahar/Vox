@@ -76,10 +76,10 @@ export const user = {
 // ─── Hub ─────────────────────────────────────────────────
 export const hub = {
   // Legacy: create hub with manual ID
-  create: (hubId: string) =>
-    request<Record<string, string>>(`/hub/${hubId}/new`, {
-      method: "POST",
-    }),
+  // create: (hubId: string) =>
+  //   request<Record<string, string>>(`/hub/${hubId}/new`, {
+  //     method: "POST",
+  //   }),
 
   // New: create hub, server generates ID automatically
   createAuto: (userId: string) =>
@@ -90,20 +90,24 @@ export const hub = {
 
   // New: list hubs where current user is host
   listMine: (userId: string) =>
-    request<{ hub_ids: string[] }>(
-      `/user/hubs?user_id=${encodeURIComponent(userId)}`,
-    ),
+    request<{ hub_ids: string[] }>(`/user/hubs`, {
+      method: "GET",
+      body: JSON.stringify({ user_id: userId }),
+    }),
 
   // New: delete a hub
   delete: (hubId: string, userId: string) =>
-    request<void>(`/${hubId}/`, {
+    request<void>(`/hub/${hubId}/`, {
       method: "DELETE",
       body: JSON.stringify({ user_id: userId }),
     }),
 
   // New: reconnect stream (redirects to publish URL)
   reconnect: (hubId: string, userId: string) =>
-    request<void>(`/${hubId}/reconnect?user_id=${encodeURIComponent(userId)}`),
+    request<void>(`/hub/${hubId}/reconnect`, {
+      method: "GET",
+      body: JSON.stringify({ user_id: userId }),
+    }),
 
   listenUrl: (hubId: string) => `${BASE_URL}/hub/${hubId}/listen`,
 
