@@ -2,10 +2,10 @@ package auth
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	mod "vox/pkg/models"
 
+	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 )
 
@@ -95,7 +95,7 @@ func (pa *PostgresAuth) GetUser(ctx context.Context, log *zap.Logger, providerID
 	}
 
 	err = tx.QueryRow(ctx, "SELECT user_id FROM users_and_providers WHERE provider_id = $1 AND user_provider_id = $2", providerID, userProviderID).Scan(&u.ID)
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return u, nil
 	}
 	if err != nil {
