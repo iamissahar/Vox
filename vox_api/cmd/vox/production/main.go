@@ -204,7 +204,7 @@ func newLogger() (*zap.Logger, zap.AtomicLevel, *os.File, *os.File) {
 	core := zapcore.NewTee(
 		// stdout — JSON, ISO8601, управляемый уровень
 		zapcore.NewCore(
-			zapcore.NewJSONEncoder(loggerCfg),
+			zapcore.NewConsoleEncoder(loggerCfg),
 			zapcore.AddSync(os.Stdout),
 			atom,
 		),
@@ -216,7 +216,7 @@ func newLogger() (*zap.Logger, zap.AtomicLevel, *os.File, *os.File) {
 		),
 		// app.log — Console, RFC3339, управляемый уровень
 		zapcore.NewCore(
-			zapcore.NewConsoleEncoder(fileCfg),
+			zapcore.NewJSONEncoder(fileCfg),
 			zapcore.AddSync(infoFile),
 			atom,
 		),
