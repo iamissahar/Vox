@@ -89,7 +89,7 @@ func timeout(c *gin.Context) {
 func NewRouter(cfg *models.Config, pool *models.Pool, logger *zap.Logger, atom zap.AtomicLevel) {
 	userAPI := user.UserAPI{DB: user.NewUserDB(pool)}
 	authAPI := auth.AuthAPI{DB: auth.NewAuthDB(pool), Cfg: cfg}
-	hubAPI := hub.HubAPI{DB: hub.NewHubDB(pool), Cfg: cfg}
+	hubAPI := hub.HubAPI{DB: hub.NewHubDB(pool), Cfg: cfg, MGR: hub.NewManager()}
 	voiceAPI := voice.VoiceAPI{DB: voice.NewVoiceDB(pool), Cfg: cfg}
 	logsAPI := logs.LogsAPI{Atomic: atom}
 	hostAndHubs := hub.NewHostAndHubs()
