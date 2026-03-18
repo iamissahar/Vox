@@ -6,22 +6,19 @@ import type {
   OAuthProvider,
 } from "../types";
 
-const BASE_URL = "https://api.bogdanantonovich.com/vox";
+const BASE_URL = "https://api.bogdanantonovich.com/vox/api";
 
 class ApiError extends Error {
   constructor(
     public code: number,
-    message: string
+    message: string,
   ) {
     super(message);
     this.name = "ApiError";
   }
 }
 
-async function request<T>(
-  path: string,
-  options: RequestInit = {}
-): Promise<T> {
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     credentials: "include", // sends cookies automatically (access_token, refresh_token)
     headers: {
@@ -41,7 +38,7 @@ async function request<T>(
     const errData = data as HttpErrorResponse | null;
     throw new ApiError(
       errData?.error?.code ?? res.status,
-      errData?.error?.message ?? "Unknown error"
+      errData?.error?.message ?? "Unknown error",
     );
   }
 
