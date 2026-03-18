@@ -1,7 +1,7 @@
 // @title           Vox AI SI API
 // @version         1.0
 // @description     Vox API server
-// @host            api.bogdanantonovich.com
+// @host            bogdanantonovich.com/vox/api
 // @BasePath        /
 // @schemes         https
 

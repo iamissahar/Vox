@@ -17,8 +17,8 @@ import (
 )
 
 func setTokenCookies(ctx *gin.Context, accessToken, refreshToken string) {
-	ctx.SetCookie("access_token", accessToken, 900, "/", "", true, true)
-	ctx.SetCookie("refresh_token", refreshToken, 7*24*3600, "/", "", true, true)
+	ctx.SetCookie("access_token", accessToken, 900, "/", ".bogdanantonovich.com", true, true)
+	ctx.SetCookie("refresh_token", refreshToken, 7*24*3600, "/", ".bogdanantonovich.com", true, true)
 }
 
 func (a *AuthAPI) IsAdmin(ctx *gin.Context) {
