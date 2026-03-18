@@ -6,7 +6,7 @@ import type {
   OAuthProvider,
 } from "../types";
 
-const BASE_URL = "https://api.bogdanantonovich.com/vox/api";
+const BASE_URL = "https://bogdanantonovich.com/vox/api";
 
 class ApiError extends Error {
   constructor(
