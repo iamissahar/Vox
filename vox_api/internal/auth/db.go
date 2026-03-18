@@ -95,7 +95,7 @@ func (pa *PostgresAuth) GetUser(ctx context.Context, log *zap.Logger, providerID
 	}
 
 	err = tx.QueryRow(ctx, "SELECT user_id FROM users_and_providers WHERE provider_id = $1 AND user_provider_id = $2", providerID, userProviderID).Scan(&u.ID)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return u, nil
 	}
 	if err != nil {
