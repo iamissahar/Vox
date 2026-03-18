@@ -12,7 +12,6 @@ import (
 	"vox/tests/utils/vars"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
 
@@ -238,7 +237,6 @@ func TestGetUser(t *testing.T) {
 				assert.Empty(t, u.ID)
 			} else {
 				assert.NoError(t, err)
-				require.NotEmpty(t, u.ID)
 				assert.Equal(t, tc.wantUser.ID, u.ID)
 				assert.Equal(t, tc.wantUser.Email, u.Email)
 				assert.Equal(t, tc.wantUser.Name, u.Name)
