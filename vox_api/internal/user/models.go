@@ -6,7 +6,3 @@ type UserInfo struct {
 	Picture string `json:"picture"`
 	Name    string `json:"name"`
 }
-
-type u struct {
-	ID string `json:"user_id"`
-}

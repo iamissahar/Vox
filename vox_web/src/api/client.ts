@@ -90,24 +90,22 @@ export const hub = {
 
   // New: list hubs where current user is host
   listMine: (userId: string) =>
-    request<{ hub_ids: string[] }>(`/user/hubs`, {
-      method: "GET",
+    request<{ hub_ids: string[] }>("/user/hubs", {
+      method: "POST", // временно POST пока бэк не починит GET+body
       body: JSON.stringify({ user_id: userId }),
     }),
 
-  // New: delete a hub
   delete: (hubId: string, userId: string) =>
-    request<void>(`/hub/${hubId}/`, {
+    request<void>(`/hub/${hubId}`, {
+      // убрал trailing slash
       method: "DELETE",
       body: JSON.stringify({ user_id: userId }),
     }),
 
   // New: reconnect stream (redirects to publish URL)
-  reconnect: (hubId: string, userId: string) =>
-    request<void>(`/hub/${hubId}/reconnect`, {
-      method: "GET",
-      body: JSON.stringify({ user_id: userId }),
-    }),
+  reconnect: (hubId: string) => {
+    window.location.href = `${BASE_URL}/hub/${hubId}/reconnect`;
+  },
 
   listenUrl: (hubId: string) => `${BASE_URL}/hub/${hubId}/listen`,
 

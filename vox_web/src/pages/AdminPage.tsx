@@ -46,7 +46,6 @@ const HubRow: React.FC<HubRowProps> = ({
   const [broadcasting, setBroadcasting] = useState(false);
   const [active, setActive] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [reconnecting, setReconnecting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [err, setErr] = useState("");
   const [copied, setCopied] = useState(false);
@@ -109,16 +108,8 @@ const HubRow: React.FC<HubRowProps> = ({
     }
   };
 
-  const handleReconnect = async () => {
-    setReconnecting(true);
-    setErr("");
-    try {
-      await hubApi.reconnect(hubId, userId);
-    } catch {
-      setErr("Reconnect failed.");
-    } finally {
-      setReconnecting(false);
-    }
+  const handleReconnect = () => {
+    hubApi.reconnect(hubId);
   };
 
   const handleCopy = () => {
@@ -197,10 +188,9 @@ const HubRow: React.FC<HubRowProps> = ({
         <button
           title="Reconnect stream"
           onClick={handleReconnect}
-          disabled={reconnecting}
           style={iconBtnStyle}
         >
-          {reconnecting ? <MiniSpinner /> : <IconReconnect />}
+          <IconReconnect />
         </button>
         <button
           title={confirmDelete ? "Click again to confirm" : "Delete hub"}

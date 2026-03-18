@@ -1,6 +1,8 @@
 package helpers
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-gonic/gin"
+)
 
 func IsValString(ctx *gin.Context, key string) (str string, ok bool) {
 	val, _ok := ctx.Get(key)

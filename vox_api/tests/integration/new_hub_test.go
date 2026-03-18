@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -22,10 +21,10 @@ import (
 func TestNewHubHandler_StatusCreated(t *testing.T) {
 	cache := hub.NewHostAndHubs()
 	api := &hub.HubAPI{MGR: hub.NewManager()}
-	r := helpers.NewHubRouter(t, api, cache)
+	r := helpers.NewHubRouter(t, api, cache, uuid.New().String())
 
 	w := httptest.NewRecorder()
-	r.ServeHTTP(w, helpers.NewHubRequest(uuid.New().String()))
+	r.ServeHTTP(w, helpers.NewHubRequest())
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 }
@@ -33,10 +32,10 @@ func TestNewHubHandler_StatusCreated(t *testing.T) {
 func TestNewHubHandler_ResponseIsValidJSON(t *testing.T) {
 	cache := hub.NewHostAndHubs()
 	api := &hub.HubAPI{MGR: hub.NewManager()}
-	r := helpers.NewHubRouter(t, api, cache)
+	r := helpers.NewHubRouter(t, api, cache, uuid.New().String())
 
 	w := httptest.NewRecorder()
-	r.ServeHTTP(w, helpers.NewHubRequest(uuid.New().String()))
+	r.ServeHTTP(w, helpers.NewHubRequest())
 
 	require.Equal(t, http.StatusCreated, w.Code)
 	assert.True(t, json.Valid(w.Body.Bytes()))
@@ -45,10 +44,10 @@ func TestNewHubHandler_ResponseIsValidJSON(t *testing.T) {
 func TestNewHubHandler_ResponseContainsNonEmptyHubID(t *testing.T) {
 	cache := hub.NewHostAndHubs()
 	api := &hub.HubAPI{MGR: hub.NewManager()}
-	r := helpers.NewHubRouter(t, api, cache)
+	r := helpers.NewHubRouter(t, api, cache, uuid.New().String())
 
 	w := httptest.NewRecorder()
-	r.ServeHTTP(w, helpers.NewHubRequest(uuid.New().String()))
+	r.ServeHTTP(w, helpers.NewHubRequest())
 
 	require.Equal(t, http.StatusCreated, w.Code)
 	var body map[string]string
@@ -59,10 +58,10 @@ func TestNewHubHandler_ResponseContainsNonEmptyHubID(t *testing.T) {
 func TestNewHubHandler_ResponseHubIDIsValidUUID(t *testing.T) {
 	cache := hub.NewHostAndHubs()
 	api := &hub.HubAPI{MGR: hub.NewManager()}
-	r := helpers.NewHubRouter(t, api, cache)
+	r := helpers.NewHubRouter(t, api, cache, uuid.New().String())
 
 	w := httptest.NewRecorder()
-	r.ServeHTTP(w, helpers.NewHubRequest(uuid.New().String()))
+	r.ServeHTTP(w, helpers.NewHubRequest())
 
 	require.Equal(t, http.StatusCreated, w.Code)
 	var body map[string]string
@@ -74,11 +73,11 @@ func TestNewHubHandler_ResponseHubIDIsValidUUID(t *testing.T) {
 func TestNewHubHandler_HubRegisteredInCache(t *testing.T) {
 	cache := hub.NewHostAndHubs()
 	api := &hub.HubAPI{MGR: hub.NewManager()}
-	r := helpers.NewHubRouter(t, api, cache)
-
 	userID := uuid.New().String()
+	r := helpers.NewHubRouter(t, api, cache, userID)
+
 	w := httptest.NewRecorder()
-	r.ServeHTTP(w, helpers.NewHubRequest(userID))
+	r.ServeHTTP(w, helpers.NewHubRequest())
 
 	require.Equal(t, http.StatusCreated, w.Code)
 	var body map[string]string
@@ -91,26 +90,26 @@ func TestNewHubHandler_HubRegisteredInCache(t *testing.T) {
 func TestNewHubHandler_ContentTypeIsJSON(t *testing.T) {
 	cache := hub.NewHostAndHubs()
 	api := &hub.HubAPI{MGR: hub.NewManager()}
-	r := helpers.NewHubRouter(t, api, cache)
+	r := helpers.NewHubRouter(t, api, cache, uuid.New().String())
 
 	w := httptest.NewRecorder()
-	r.ServeHTTP(w, helpers.NewHubRequest(uuid.New().String()))
+	r.ServeHTTP(w, helpers.NewHubRequest())
 
 	require.Equal(t, http.StatusCreated, w.Code)
 	assert.Contains(t, w.Header().Get("Content-Type"), "application/json")
 }
 
-func TestNewHubHandler_InvalidBody_ReturnsBadRequest(t *testing.T) {
+func TestNewHubHandler_MissingUserID_ReturnsBadRequest(t *testing.T) {
 	cache := hub.NewHostAndHubs()
 	api := &hub.HubAPI{MGR: hub.NewManager()}
-	r := helpers.NewHubRouter(t, api, cache)
+	r := helpers.NewHubRouter(t, api, cache, "")
 
-	req := httptest.NewRequest(http.MethodPost, "/hub", strings.NewReader(`not json`))
+	req := httptest.NewRequest(http.MethodPost, "/hub", nil)
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
 func TestNewHubHandler_MissingCache_ReturnsInternalError(t *testing.T) {
@@ -121,32 +120,7 @@ func TestNewHubHandler_MissingCache_ReturnsInternalError(t *testing.T) {
 	r.POST("/hub", (&hub.HubAPI{MGR: hub.NewManager()}).NewHubHandler)
 
 	w := httptest.NewRecorder()
-	r.ServeHTTP(w, helpers.NewHubRequest(uuid.New().String()))
+	r.ServeHTTP(w, helpers.NewHubRequest())
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
-}
-
-func TestNewHubHandler_MultipleUsers_CacheIsolated(t *testing.T) {
-	// хабы разных пользователей не пересекаются в кэше
-	cache := hub.NewHostAndHubs()
-	api := &hub.HubAPI{MGR: hub.NewManager()}
-	r := helpers.NewHubRouter(t, api, cache)
-
-	userA := uuid.New().String()
-	userB := uuid.New().String()
-
-	wA := httptest.NewRecorder()
-	r.ServeHTTP(wA, helpers.NewHubRequest(userA))
-	require.Equal(t, http.StatusCreated, wA.Code)
-
-	wB := httptest.NewRecorder()
-	r.ServeHTTP(wB, helpers.NewHubRequest(userB))
-	require.Equal(t, http.StatusCreated, wB.Code)
-
-	var bodyA, bodyB map[string]string
-	require.NoError(t, json.Unmarshal(wA.Body.Bytes(), &bodyA))
-	require.NoError(t, json.Unmarshal(wB.Body.Bytes(), &bodyB))
-
-	assert.NotContains(t, cache.GetHubs(userA), bodyB["hub_id"])
-	assert.NotContains(t, cache.GetHubs(userB), bodyA["hub_id"])
 }

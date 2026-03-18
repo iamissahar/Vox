@@ -5,7 +5,6 @@ package integration
 import (
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"vox/internal/hub"
 	"vox/tests/utils/helpers"
@@ -17,8 +16,6 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-// --- тесты ---
-
 func TestDeleteHubHandler_HappyPath_ReturnsNoContent(t *testing.T) {
 	mgr := hub.NewManager()
 	hubID := mgr.New()
@@ -29,7 +26,7 @@ func TestDeleteHubHandler_HappyPath_ReturnsNoContent(t *testing.T) {
 	cache.AddHub(userID, hubID)
 
 	api := &hub.HubAPI{MGR: mgr}
-	r := helpers.NewDeleteHubRouter(t, api, cache, h)
+	r := helpers.NewDeleteHubRouter(t, api, cache, h, userID)
 
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, helpers.NewDeleteHubRequest(hubID, userID))
@@ -47,7 +44,7 @@ func TestDeleteHubHandler_HappyPath_HubRemovedFromManager(t *testing.T) {
 	cache.AddHub(userID, hubID)
 
 	api := &hub.HubAPI{MGR: mgr}
-	r := helpers.NewDeleteHubRouter(t, api, cache, h)
+	r := helpers.NewDeleteHubRouter(t, api, cache, h, userID)
 
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, helpers.NewDeleteHubRequest(hubID, userID))
@@ -63,11 +60,11 @@ func TestDeleteHubHandler_NotOwner_ReturnsForbidden(t *testing.T) {
 	h, _ := mgr.Get(hubID)
 
 	cache := hub.NewHostAndHubs()
-	// другой юзер владеет хабом
+	userID := uuid.New().String()
 	cache.AddHub(uuid.New().String(), hubID)
 
 	api := &hub.HubAPI{MGR: mgr}
-	r := helpers.NewDeleteHubRouter(t, api, cache, h)
+	r := helpers.NewDeleteHubRouter(t, api, cache, h, userID)
 
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, helpers.NewDeleteHubRequest(hubID, uuid.New().String()))
@@ -81,10 +78,11 @@ func TestDeleteHubHandler_NotOwner_HubStillExistsInManager(t *testing.T) {
 	h, _ := mgr.Get(hubID)
 
 	cache := hub.NewHostAndHubs()
+	userID := uuid.New().String()
 	cache.AddHub(uuid.New().String(), hubID)
 
 	api := &hub.HubAPI{MGR: mgr}
-	r := helpers.NewDeleteHubRouter(t, api, cache, h)
+	r := helpers.NewDeleteHubRouter(t, api, cache, h, userID)
 
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, helpers.NewDeleteHubRequest(hubID, uuid.New().String()))
@@ -94,21 +92,21 @@ func TestDeleteHubHandler_NotOwner_HubStillExistsInManager(t *testing.T) {
 	assert.True(t, ok, "hub must still exist after forbidden delete attempt")
 }
 
-func TestDeleteHubHandler_InvalidBody_ReturnsBadRequest(t *testing.T) {
+func TestDeleteHubHandler_MissingUserID_ReturnsInternalError(t *testing.T) {
 	mgr := hub.NewManager()
 	hubID := mgr.New()
 	h, _ := mgr.Get(hubID)
 
 	cache := hub.NewHostAndHubs()
+	cache.AddHub(uuid.New().String(), hubID)
+
 	api := &hub.HubAPI{MGR: mgr}
-	r := helpers.NewDeleteHubRouter(t, api, cache, h)
+	r := helpers.NewDeleteHubRouter(t, api, cache, h, "")
 
-	req := httptest.NewRequest(http.MethodDelete, "/hub/"+hubID, strings.NewReader(`not json`))
-	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
+	r.ServeHTTP(w, helpers.NewDeleteHubRequest(hubID, ""))
 
-	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
 func TestDeleteHubHandler_MissingHub_ReturnsNotFound(t *testing.T) {
@@ -116,8 +114,10 @@ func TestDeleteHubHandler_MissingHub_ReturnsNotFound(t *testing.T) {
 	cache := hub.NewHostAndHubs()
 	api := &hub.HubAPI{MGR: mgr}
 
+	userID := uuid.New().String()
+
 	// hub не инжектится в контекст
-	r := helpers.NewDeleteHubRouter(t, api, cache, nil)
+	r := helpers.NewDeleteHubRouter(t, api, cache, nil, userID)
 
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, helpers.NewDeleteHubRequest(uuid.New().String(), uuid.New().String()))
@@ -129,12 +129,14 @@ func TestDeleteHubHandler_MissingCache_ReturnsInternalError(t *testing.T) {
 	mgr := hub.NewManager()
 	hubID := mgr.New()
 	h, _ := mgr.Get(hubID)
+	userID := uuid.New().String()
 
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	r.Use(helpers.InjectLogger(zaptest.NewLogger(t)))
 	r.Use(func(c *gin.Context) {
 		c.Set("hub", h) // кэш не инжектим
+		c.Set("user_id", userID)
 		c.Next()
 	})
 	r.DELETE("/hub/:hub_id", (&hub.HubAPI{MGR: mgr}).DeleteHubHandler)
@@ -149,6 +151,7 @@ func TestDeleteHubHandler_InvalidCacheType_ReturnsInternalError(t *testing.T) {
 	mgr := hub.NewManager()
 	hubID := mgr.New()
 	h, _ := mgr.Get(hubID)
+	userID := uuid.New().String()
 
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
@@ -156,6 +159,7 @@ func TestDeleteHubHandler_InvalidCacheType_ReturnsInternalError(t *testing.T) {
 	r.Use(func(c *gin.Context) {
 		c.Set("hub", h)
 		c.Set("host_and_hub_cache", "not a cache")
+		c.Set("user_id", userID)
 		c.Next()
 	})
 	r.DELETE("/hub/:hub_id", (&hub.HubAPI{MGR: mgr}).DeleteHubHandler)
@@ -178,7 +182,7 @@ func TestDeleteHubHandler_UserWithMultipleHubs_DeletesOnlyTargetHub(t *testing.T
 	cache.AddHub(userID, hubID2)
 
 	api := &hub.HubAPI{MGR: mgr}
-	r := helpers.NewDeleteHubRouter(t, api, cache, h1)
+	r := helpers.NewDeleteHubRouter(t, api, cache, h1, userID)
 
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, helpers.NewDeleteHubRequest(hubID1, userID))

@@ -1,7 +1,6 @@
 package user
 
 import (
-	"io"
 	"net/http"
 	"strings"
 	"vox/internal/hub"
@@ -58,14 +57,12 @@ func (u *UserAPI) InfoHandler(ctx *gin.Context) {
 // @Summary      Get user hubs
 // @Description  Returns all hub IDs associated with the authenticated user
 // @Tags         user
-// @Accept       json
 // @Produce      json
-// @Param        body  body  object{user_id=string}  true  "User payload"
 // @Success      200  {object}  object{hub_ids=[]string}  "List of hub IDs"
 // @Failure      400  {object}  models.HttpErrorResponse  "Invalid request body"
 // @Failure      403  {object}  models.HttpErrorResponse  "User is not authenticated"
 // @Failure      500  {object}  models.HttpErrorResponse  "Internal server error"
-// @Security     BearerAuth
+// @Security     CookieAuth
 // @Router       /user/hubs [get]
 func (uapi *UserAPI) HubsHandler(ctx *gin.Context) {
 	log := mod.GetLogger(ctx)
@@ -77,24 +74,16 @@ func (uapi *UserAPI) HubsHandler(ctx *gin.Context) {
 		return
 	}
 
-	body, err := io.ReadAll(ctx.Request.Body)
-	if err != nil {
-		log.Warn("Request body is unreadable")
-		ctx.Data(http.StatusBadRequest, mod.APP_JSON, mod.HttpError(mod.INVALID_PAYLOAD_CODE, mod.INVALID_PAYLOAD_MSG))
-		return
-	}
-
-	u := u{}
-	err = sonic.Unmarshal(body, &u)
-	if err != nil {
-		log.Warn("Request body is unmarshalable")
-		ctx.Data(http.StatusBadRequest, mod.APP_JSON, mod.HttpError(mod.INVALID_PAYLOAD_CODE, mod.INVALID_PAYLOAD_MSG))
+	userID, ok := helpers.IsValString(ctx, "user_id")
+	if !ok {
+		log.Error("user_id is missing")
+		ctx.Data(http.StatusInternalServerError, mod.APP_JSON, mod.HttpError(mod.INTERNAL_ERROR_CODE, mod.INTERNAL_ERROR_MSG))
 		return
 	}
 
 	switch cache := val.(type) {
 	case *hub.HostAndHubs:
-		ids := cache.GetHubs(u.ID)
+		ids := cache.GetHubs(userID)
 		ctx.Data(http.StatusOK, mod.APP_JSON, []byte(`{"hub_ids": ["`+strings.Join(ids, `", "`)+`"]}`))
 	default:
 		log.Error("Invalid host_and_hub_cache type")

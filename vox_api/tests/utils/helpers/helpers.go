@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -276,33 +275,38 @@ func GeneratePair(log *zap.Logger, userID, secret string) (access, refresh strin
 	return
 }
 
-func NewHubRouter(t *testing.T, api *hub.HubAPI, cache *hub.HostAndHubs) *gin.Engine {
+func NewHubRouter(t *testing.T, api *hub.HubAPI, cache *hub.HostAndHubs, userID string) *gin.Engine {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	r.Use(InjectLogger(zaptest.NewLogger(t)))
 	r.Use(func(c *gin.Context) {
 		c.Set("host_and_hub_cache", cache)
+		if userID != "" {
+			c.Set("user_id", userID)
+		}
 		c.Next()
 	})
 	r.POST("/hub", api.NewHubHandler)
 	return r
 }
 
-func NewHubRequest(userID string) *http.Request {
-	body := fmt.Sprintf(`{"user_id": "%s"}`, userID)
-	req := httptest.NewRequest(http.MethodPost, "/hub", strings.NewReader(body))
+func NewHubRequest() *http.Request {
+	req := httptest.NewRequest(http.MethodPost, "/hub", nil)
 	req.Header.Set("Content-Type", "application/json")
 	return req
 }
 
-func NewReconnectRouter(t *testing.T, api *hub.HubAPI, cache *hub.HostAndHubs) *gin.Engine {
+func NewReconnectRouter(t *testing.T, api *hub.HubAPI, cache *hub.HostAndHubs, userID string) *gin.Engine {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	r.Use(InjectLogger(zaptest.NewLogger(t)))
 	r.Use(func(c *gin.Context) {
 		c.Set("host_and_hub_cache", cache)
+		if userID != "" {
+			c.Set("user_id", userID)
+		}
 		c.Next()
 	})
 	r.GET("/hub/:hub_id/reconnect", api.ReconnectHandler)
@@ -310,13 +314,12 @@ func NewReconnectRouter(t *testing.T, api *hub.HubAPI, cache *hub.HostAndHubs) *
 }
 
 func NewReconnectRequest(hubID, userID string) *http.Request {
-	body := fmt.Sprintf(`{"user_id": "%s"}`, userID)
-	req := httptest.NewRequest(http.MethodGet, "/hub/"+hubID+"/reconnect", strings.NewReader(body))
+	req := httptest.NewRequest(http.MethodGet, "/hub/"+hubID+"/reconnect", nil)
 	req.Header.Set("Content-Type", "application/json")
 	return req
 }
 
-func NewDeleteHubRouter(t *testing.T, api *hub.HubAPI, cache *hub.HostAndHubs, h *hub.Hub) *gin.Engine {
+func NewDeleteHubRouter(t *testing.T, api *hub.HubAPI, cache *hub.HostAndHubs, h *hub.Hub, userID string) *gin.Engine {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
@@ -326,6 +329,9 @@ func NewDeleteHubRouter(t *testing.T, api *hub.HubAPI, cache *hub.HostAndHubs, h
 		if h != nil {
 			c.Set("hub", h)
 		}
+		if userID != "" {
+			c.Set("user_id", userID)
+		}
 		c.Next()
 	})
 	r.DELETE("/hub/:hub_id", api.DeleteHubHandler)
@@ -333,28 +339,29 @@ func NewDeleteHubRouter(t *testing.T, api *hub.HubAPI, cache *hub.HostAndHubs, h
 }
 
 func NewDeleteHubRequest(hubID, userID string) *http.Request {
-	body := fmt.Sprintf(`{"user_id": "%s"}`, userID)
-	req := httptest.NewRequest(http.MethodDelete, "/hub/"+hubID, strings.NewReader(body))
+	req := httptest.NewRequest(http.MethodDelete, "/hub/"+hubID, nil)
 	req.Header.Set("Content-Type", "application/json")
 	return req
 }
 
-func NewHubsRouter(t *testing.T, api *user.UserAPI, cache *hub.HostAndHubs) *gin.Engine {
+func NewHubsRouter(t *testing.T, api *user.UserAPI, cache *hub.HostAndHubs, userID string) *gin.Engine {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	r.Use(InjectLogger(zaptest.NewLogger(t)))
 	r.Use(func(c *gin.Context) {
 		c.Set("host_and_hub_cache", cache)
+		if userID != "" {
+			c.Set("user_id", userID)
+		}
 		c.Next()
 	})
 	r.GET("/user/hubs", api.HubsHandler)
 	return r
 }
 
-func NewHubsRequest(userID string) *http.Request {
-	body := fmt.Sprintf(`{"user_id": "%s"}`, userID)
-	req := httptest.NewRequest(http.MethodGet, "/user/hubs", strings.NewReader(body))
+func NewHubsRequest() *http.Request {
+	req := httptest.NewRequest(http.MethodGet, "/user/hubs", nil)
 	req.Header.Set("Content-Type", "application/json")
 	return req
 }
