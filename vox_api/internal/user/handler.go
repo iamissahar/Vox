@@ -60,7 +60,7 @@ func (u *UserAPI) InfoHandler(ctx *gin.Context) {
 // @Tags         user
 // @Accept       json
 // @Produce      json
-// @Param        body  body  object{id=string}  true  "User payload"
+// @Param        body  body  object{user_id=string}  true  "User payload"
 // @Success      200  {object}  object{hub_ids=[]string}  "List of hub IDs"
 // @Failure      400  {object}  models.HttpErrorResponse  "Invalid request body"
 // @Failure      403  {object}  models.HttpErrorResponse  "User is not authenticated"
