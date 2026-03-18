@@ -1,7 +1,10 @@
 package user
 
 import (
+	"io"
 	"net/http"
+	"strings"
+	"vox/internal/hub"
 	"vox/pkg/helpers"
 	mod "vox/pkg/models"
 
@@ -49,4 +52,52 @@ func (u *UserAPI) InfoHandler(ctx *gin.Context) {
 
 	log.Debug("User info is sent", zap.Any("user_info", user))
 	ctx.Data(http.StatusOK, mod.APP_JSON, body)
+}
+
+// HubsHandler returns list of hub IDs owned by the user
+// @Summary      Get user hubs
+// @Description  Returns all hub IDs associated with the authenticated user
+// @Tags         user
+// @Accept       json
+// @Produce      json
+// @Param        body  body  object{id=string}  true  "User payload"
+// @Success      200  {object}  object{hub_ids=[]string}  "List of hub IDs"
+// @Failure      400  {object}  mod.ErrorResponse  "Invalid request body"
+// @Failure      403  {object}  mod.ErrorResponse  "User is not authenticated"
+// @Failure      500  {object}  mod.ErrorResponse  "Internal server error"
+// @Security     BearerAuth
+// @Router       /user/hubs [post]
+func (uapi *UserAPI) HubsHandler(ctx *gin.Context) {
+	log := mod.GetLogger(ctx)
+
+	val, ok := ctx.Get("host_and_hub_cache")
+	if !ok {
+		log.Error("Invalid host_and_hub_cache type")
+		ctx.Data(http.StatusInternalServerError, mod.APP_JSON, mod.HttpError(mod.INTERNAL_ERROR_CODE, mod.INTERNAL_ERROR_MSG))
+		return
+	}
+
+	body, err := io.ReadAll(ctx.Request.Body)
+	if err != nil {
+		log.Warn("Request body is unreadable")
+		ctx.Data(http.StatusBadRequest, mod.APP_JSON, mod.HttpError(mod.INVALID_PAYLOAD_CODE, mod.INVALID_PAYLOAD_MSG))
+		return
+	}
+
+	u := u{}
+	err = sonic.Unmarshal(body, &u)
+	if err != nil {
+		log.Warn("Request body is unmarshalable")
+		ctx.Data(http.StatusBadRequest, mod.APP_JSON, mod.HttpError(mod.INVALID_PAYLOAD_CODE, mod.INVALID_PAYLOAD_MSG))
+		return
+	}
+
+	switch cache := val.(type) {
+	case *hub.HostAndHubs:
+		ids := cache.GetHubs(u.ID)
+		ctx.Data(http.StatusOK, mod.APP_JSON, []byte(`{"hub_ids": ["`+strings.Join(ids, `", "`)+`"]}`))
+	default:
+		log.Error("Invalid host_and_hub_cache type")
+		ctx.Data(http.StatusInternalServerError, mod.APP_JSON, mod.HttpError(mod.INTERNAL_ERROR_CODE, mod.INTERNAL_ERROR_MSG))
+	}
 }

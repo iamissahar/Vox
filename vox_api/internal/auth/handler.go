@@ -44,7 +44,7 @@ func (a *AuthAPI) IsAuthorized(ctx *gin.Context) {
 	claims, err := decodeAccessToken(log, cookie, []byte(a.Cfg.JWTSecret), true)
 	if err != nil {
 		ctx.Abort()
-		ctx.Data(http.StatusUnauthorized, mod.APP_JSON, mod.HttpError(mod.UNAUTHORIZED_CODE, mod.UNAUTHORIZED_MSG))
+		ctx.Data(http.StatusForbidden, mod.APP_JSON, mod.HttpError(mod.UNAUTHORIZED_CODE, mod.UNAUTHORIZED_MSG))
 		return
 	}
 

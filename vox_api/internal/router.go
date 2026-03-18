@@ -92,6 +92,7 @@ func NewRouter(cfg *models.Config, pool *models.Pool, logger *zap.Logger, atom z
 	hubAPI := hub.HubAPI{DB: hub.NewHubDB(pool), Cfg: cfg}
 	voiceAPI := voice.VoiceAPI{DB: voice.NewVoiceDB(pool), Cfg: cfg}
 	logsAPI := logs.LogsAPI{Atomic: atom}
+	hostAndHubs := hub.NewHostAndHubs()
 
 	engine := gin.New()
 
@@ -132,28 +133,49 @@ func NewRouter(cfg *models.Config, pool *models.Pool, logger *zap.Logger, atom z
 		authGroup.POST("/sign_up", authAPI.SignUpHandler)
 	}
 
-	hubGroup := corsGroups.Group("/hub/:hub_id")
-	hubGroup.Use(hubAPI.IsHubIDValid)
+	hubGroup := corsGroups.Group("/hub")
 	{
-		privateHubGroup := hubGroup.Group("/")
-		privateHubGroup.Use(authAPI.IsAuthorized)
-		privateHubGroup.Use(hubAPI.IsContentTypeValid)
-		privateHubGroup.Use(hubAPI.FishSDK)
+		withTimeOutGroup := hubGroup.Group("/")
+		withTimeOutGroup.Use(timeout)
+		withTimeOutGroup.Use(authAPI.IsAuthorized)
+		// change it for something else in the future
+		withTimeOutGroup.Use(hubAPI.PutCache(hostAndHubs))
 		{
-			privateHubGroup.POST("/publish", hubAPI.PublishHandler)
-			privateHubGroup2 := privateHubGroup.Group("/")
-			privateHubGroup2.Use(timeout)
+			withTimeOutGroup.POST("/", hubAPI.NewHubHandler)
+		}
+
+		withHubIDGroup := hubGroup.Group("/:hub_id")
+		withHubIDGroup.Use(hubAPI.IsHubIDValid)
+		{
+			withHubIDGroup.DELETE("/", timeout, hubAPI.PutCache(hostAndHubs), hubAPI.DeleteHubHandler)
+			withHubIDGroup.GET("/listen", hubAPI.ListenHandler)
+
+			privateHubGroup := withHubIDGroup.Group("/")
+			privateHubGroup.Use(authAPI.IsAuthorized)
+			privateHubGroup.Use(hubAPI.IsContentTypeValid)
+			privateHubGroup.Use(hubAPI.FishSDK)
 			{
-				privateHubGroup2.POST("/new", hubAPI.NewHubHandler)
+				privateWithTimeoutGroup := privateHubGroup.Group("/")
+				privateWithTimeoutGroup.Use(timeout)
+				{
+					privateWithTimeoutGroup.GET("/reconnect", hubAPI.ReconnectHandler)
+				}
+
+				privateHubGroup.POST("/publish", hubAPI.PublishHandler)
 			}
 		}
-		hubGroup.GET("/listen", hubAPI.ListenHandler)
+
 	}
 
 	userGroup := corsGroups.Group("/user")
 	userGroup.Use(authAPI.IsAuthorized)
 	{
-		userGroup.GET("/info", timeout, userAPI.InfoHandler)
+		userWithTimeoutGroup := userGroup.Group("/")
+		userWithTimeoutGroup.Use(timeout)
+		{
+			userWithTimeoutGroup.GET("/info", userAPI.InfoHandler)
+			userWithTimeoutGroup.GET("/hubs", hubAPI.PutCache(hostAndHubs), userAPI.HubsHandler)
+		}
 		voiceGroup := userGroup.Group("/voice")
 		{
 			voiceGroup.POST("/new", voiceAPI.ReferenceHandler)

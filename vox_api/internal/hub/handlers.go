@@ -8,6 +8,7 @@ import (
 	"vox/pkg/helpers"
 	mod "vox/pkg/models"
 
+	"github.com/bytedance/sonic"
 	interfaces "github.com/deepgram/deepgram-go-sdk/v3/pkg/client/interfaces"
 	fishaudio "github.com/fishaudio/fish-audio-go"
 	"github.com/gin-gonic/gin"
@@ -36,6 +37,13 @@ func isValHub(ctx *gin.Context, key string) (hub *Hub, ok bool) {
 		return hub, ok
 	}
 	return hub, ok
+}
+
+func (h *HubAPI) PutCache(hostAndHubs *HostAndHubs) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		ctx.Set("host_and_hub_cache", hostAndHubs)
+		ctx.Next()
+	}
 }
 
 func (h *HubAPI) IsContentTypeValid(ctx *gin.Context) {
@@ -73,36 +81,184 @@ func (h *HubAPI) IsHubIDValid(ctx *gin.Context) {
 	ctx.Next()
 }
 
+type u struct {
+	ID string `json:"user_id"`
+}
+
 // NewHubHandler godoc
 // @Summary      Create a new hub
-// @Description  Creates a new hub with the given hub ID. Returns a conflict error if a hub with the same ID already exists.
+// @Description  Creates a new hub for the given user and returns the generated hub ID.
 // @Tags         hub
+// @Accept       json
 // @Produce      json
-// @Param        hub_id  path  string  true  "Hub ID"
-// @Success      201  {object}  map[string]string  "Hub created successfully"
-// @Failure      404  {object}  models.HttpErrorResponse  "Hub ID is empty or invalid"
-// @Failure      409  {object}  models.HttpErrorResponse  "Hub with the given ID already exists"
-// @Failure      401  {object}  models.HttpErrorResponse  "Missing or invalid auth cookies (IsAuthorized middleware)"
-// @Failure      415  {object}  models.HttpErrorResponse  "Invalid content type (IsContentTypeValid middleware)"
+// @Param        body  body      u    true  "User ID"
+// @Success      201   {object}  map[string]string  "Hub created successfully"
+// @Failure      400   {object}  models.HttpErrorResponse  "Request body is unreadable or invalid JSON"
+// @Failure      403   {object}  models.HttpErrorResponse  "Unauthorized"
+// @Failure      500   {object}  models.HttpErrorResponse  "Internal server error"
 // @Security     CookieAuth
-// @Router       /hub/{hub_id}/new [post]
+// @Router       /hub [post]
 func (h *HubAPI) NewHubHandler(ctx *gin.Context) {
 	log := mod.GetLogger(ctx)
+	val, ok := ctx.Get("host_and_hub_cache")
+	if !ok {
+		log.Error("Invalid host_and_hub_cache type")
+		ctx.Data(http.StatusInternalServerError, mod.APP_JSON, mod.HttpError(mod.INTERNAL_ERROR_CODE, mod.INTERNAL_ERROR_MSG))
+		return
+	}
+
+	u := u{}
+	body, err := io.ReadAll(ctx.Request.Body)
+	if err != nil {
+		log.Warn("Request body is unreadable")
+		ctx.Data(http.StatusBadRequest, mod.APP_JSON, mod.HttpError(mod.INVALID_PAYLOAD_CODE, mod.INVALID_PAYLOAD_MSG))
+		return
+	}
+
+	err = sonic.Unmarshal(body, &u)
+	if err != nil {
+		log.Warn("Request body is unmarshalable")
+		ctx.Data(http.StatusBadRequest, mod.APP_JSON, mod.HttpError(mod.INVALID_PAYLOAD_CODE, mod.INVALID_PAYLOAD_MSG))
+		return
+	}
+
+	switch cache := val.(type) {
+	case *HostAndHubs:
+		hubID := h.MGR.New()
+		log.Debug("New hub created", zap.String("hub_id", hubID))
+		cache.AddHub(u.ID, hubID)
+		ctx.Data(http.StatusCreated, mod.APP_JSON, []byte(`{"hub_id": "`+hubID+`"}`))
+	default:
+		log.Error("Invalid host_and_hub_cache type")
+		ctx.Data(http.StatusInternalServerError, mod.APP_JSON, mod.HttpError(mod.INTERNAL_ERROR_CODE, mod.INTERNAL_ERROR_MSG))
+	}
+}
+
+// ReconnectHandler redirects user to hub publish page
+// @Summary      Reconnect to hub
+// @Description  Checks if the user is the owner of the specified hub and redirects to the frontend publish page
+// @Tags         hub
+// @Accept       json
+// @Param        hub_id  path  string        true  "Hub ID"
+// @Param        body    body  object{id=string}  true  "User payload"
+// @Success      307  "Temporary redirect to frontend hub publish page"
+// @Failure      400  {object}  mod.ErrorResponse  "Invalid request body"
+// @Failure      403  {object}  mod.ErrorResponse  "User is not authenticated or not the hub owner"
+// @Failure      500  {object}  mod.ErrorResponse  "Internal server error"
+// @Security     BearerAuth
+// @Router       /hub/{hub_id}/reconnect [get]
+func (h *HubAPI) ReconnectHandler(ctx *gin.Context) {
+	log := mod.GetLogger(ctx)
+
+	val, ok := ctx.Get("host_and_hub_cache")
+	if !ok {
+		log.Error("Invalid host_and_hub_cache type")
+		ctx.Data(http.StatusInternalServerError, mod.APP_JSON, mod.HttpError(mod.INTERNAL_ERROR_CODE, mod.INTERNAL_ERROR_MSG))
+		return
+	}
+
+	body, err := io.ReadAll(ctx.Request.Body)
+	if err != nil {
+		log.Warn("Request body is unreadable")
+		ctx.Data(http.StatusBadRequest, mod.APP_JSON, mod.HttpError(mod.INVALID_PAYLOAD_CODE, mod.INVALID_PAYLOAD_MSG))
+		return
+	}
+
+	u := u{}
+	err = sonic.Unmarshal(body, &u)
+	if err != nil {
+		log.Warn("Request body is unmarshalable")
+		ctx.Data(http.StatusBadRequest, mod.APP_JSON, mod.HttpError(mod.INVALID_PAYLOAD_CODE, mod.INVALID_PAYLOAD_MSG))
+		return
+	}
+
 	hubID := ctx.Param("hub_id")
-	if hubID == "" {
-		log.Error("Invalid hub id", zap.Bool("hub_id_is_empty", hubID == ""))
+	isOwner := false
+
+	switch cache := val.(type) {
+	case *HostAndHubs:
+		for _, id := range cache.GetHubs(u.ID) {
+			if id == hubID {
+				isOwner = true
+				break
+			}
+		}
+		if !isOwner {
+			ctx.Data(http.StatusForbidden, mod.APP_JSON, mod.HttpError(mod.FORBIDDEN_CODE, mod.FORBIDDEN_MSG))
+			return
+		}
+
+		ctx.Redirect(http.StatusTemporaryRedirect, h.Cfg.FrontendURL+"/hub/"+hubID+"/publish")
+	default:
+		log.Error("Invalid host_and_hub_cache type")
+		ctx.Data(http.StatusInternalServerError, mod.APP_JSON, mod.HttpError(mod.INTERNAL_ERROR_CODE, mod.INTERNAL_ERROR_MSG))
+	}
+}
+
+// DeleteHubHandler deletes a hub by ID
+// @Summary      Delete hub
+// @Description  Deletes the specified hub if the authenticated user is its owner
+// @Tags         hub
+// @Accept       json
+// @Param        hub_id  path  string             true  "Hub ID"
+// @Param        body    body  object{id=string}  true  "User payload"
+// @Success      204  "Hub successfully deleted"
+// @Failure      400  {object}  mod.ErrorResponse  "Invalid request body"
+// @Failure      403  {object}  mod.ErrorResponse  "User is not authenticated or not the hub owner"
+// @Failure      404  {object}  mod.ErrorResponse  "Hub not found"
+// @Failure      500  {object}  mod.ErrorResponse  "Internal server error"
+// @Security     BearerAuth
+// @Router       /hub/{hub_id} [delete]
+func (h *HubAPI) DeleteHubHandler(ctx *gin.Context) {
+	log := mod.GetLogger(ctx)
+	hub, ok := isValHub(ctx, "hub")
+	if !ok {
+		log.Error("Invalid hub id", zap.Any("hub", hub))
 		ctx.Data(http.StatusNotFound, mod.APP_JSON, mod.HttpError(mod.INVALID_URL_CODE, mod.INVALID_URL_MSG))
 		return
 	}
 
-	_, ok := h.MGR.Get(hubID)
-	if ok {
-		log.Warn("Hub already exists", zap.String("hub_id", hubID))
-		ctx.Data(http.StatusConflict, mod.APP_JSON, mod.HttpError(mod.ENTITY_EXISTS_CODE, mod.ENTITY_EXISTS_MSG))
-	} else {
-		hubID = h.MGR.New()
-		log.Debug("New hub created", zap.String("hub_id", hubID))
-		ctx.Data(http.StatusCreated, mod.APP_JSON, []byte(`{"hub_id": "`+hubID+`"}`))
+	val, ok := ctx.Get("host_and_hub_cache")
+	if !ok {
+		log.Error("Invalid host_and_hub_cache type")
+		ctx.Data(http.StatusInternalServerError, mod.APP_JSON, mod.HttpError(mod.INTERNAL_ERROR_CODE, mod.INTERNAL_ERROR_MSG))
+		return
+	}
+
+	body, err := io.ReadAll(ctx.Request.Body)
+	if err != nil {
+		log.Warn("Request body is unreadable")
+		ctx.Data(http.StatusBadRequest, mod.APP_JSON, mod.HttpError(mod.INVALID_PAYLOAD_CODE, mod.INVALID_PAYLOAD_MSG))
+		return
+	}
+
+	u := u{}
+	err = sonic.Unmarshal(body, &u)
+	if err != nil {
+		log.Warn("Request body is unmarshalable")
+		ctx.Data(http.StatusBadRequest, mod.APP_JSON, mod.HttpError(mod.INVALID_PAYLOAD_CODE, mod.INVALID_PAYLOAD_MSG))
+		return
+	}
+
+	isOwner := false
+	switch cache := val.(type) {
+	case *HostAndHubs:
+		for _, id := range cache.GetHubs(u.ID) {
+			if id == hub.ID {
+				isOwner = true
+				break
+			}
+		}
+		if !isOwner {
+			ctx.Data(http.StatusForbidden, mod.APP_JSON, mod.HttpError(mod.FORBIDDEN_CODE, mod.FORBIDDEN_MSG))
+			return
+		}
+
+		h.MGR.Delete(hub.ID)
+		ctx.Status(http.StatusNoContent)
+	default:
+		log.Error("Invalid host_and_hub_cache type")
+		ctx.Data(http.StatusInternalServerError, mod.APP_JSON, mod.HttpError(mod.INTERNAL_ERROR_CODE, mod.INTERNAL_ERROR_MSG))
 	}
 }
 
@@ -242,7 +398,6 @@ func (h *HubAPI) PublishHandler(ctx *gin.Context) {
 	}
 
 	defer closeReader(ctx.Request.Body, log)
-	defer h.MGR.Delete(hub.ID)
 
 	g, gctx := errgroup.WithContext(ctx.Request.Context())
 

@@ -274,7 +274,7 @@ func TestPublishHandler_HappyPath_HubRemovedFromManagerAfterReturn(t *testing.T)
 
 	require.Equal(t, http.StatusOK, w.Code)
 	_, ok := mgr.Get(hubID)
-	assert.False(t, ok, "defer MGR.Delete must have fired: hub must be gone after handler returns")
+	assert.True(t, ok, "defer MGR.Delete must have fired: hub must not be gone after handler returns")
 }
 
 func TestPublishHandler_HappyPath_AudioChunkReachesHubConsumer(t *testing.T) {

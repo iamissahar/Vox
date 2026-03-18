@@ -17,6 +17,7 @@ const (
 	INVALID_CONTENT_TYPE_CODE = 5
 	INVALID_URL_CODE          = 6
 	ENTITY_EXISTS_CODE        = 7
+	FORBIDDEN_CODE            = 8
 )
 
 const (
@@ -29,6 +30,7 @@ const (
 	INVALID_CONTENT_TYPE_MSG = "invalid content type"
 	INVALID_URL_MSG          = "invalid url"
 	ENTITY_EXISTS_MSG        = "entity already exists"
+	FORBIDDEN_MSG            = "forbidden"
 )
 
 type Pool struct {

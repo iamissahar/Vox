@@ -6,6 +6,36 @@ import (
 	"github.com/google/uuid"
 )
 
+type HostAndHubs struct {
+	mu      sync.RWMutex
+	storage map[string][]string
+}
+
+func NewHostAndHubs() *HostAndHubs {
+	return &HostAndHubs{storage: make(map[string][]string)}
+}
+
+func (h *HostAndHubs) AddHub(userID, hubID string) {
+	h.mu.Lock()
+	h.storage[userID] = append(h.storage[userID], hubID)
+	h.mu.Unlock()
+}
+
+func (h *HostAndHubs) RemoveHub(userID, hubID string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for i, id := range h.storage[userID] {
+		if id == hubID {
+			h.storage[userID] = append(h.storage[userID][:i], h.storage[userID][i+1:]...)
+			return
+		}
+	}
+}
+
+func (h *HostAndHubs) GetHubs(userID string) []string {
+	return h.storage[userID]
+}
+
 type Manager struct {
 	mu   sync.RWMutex
 	hubs map[string]*Hub
