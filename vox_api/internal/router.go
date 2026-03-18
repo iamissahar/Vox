@@ -86,6 +86,14 @@ func timeout(c *gin.Context) {
 	c.Next()
 }
 
+// TODO: migrate rate limiter store to Redis when horizontal scaling is needed
+// TODO: add separate strict rate limit (5-M) for /auth/login and /auth/sign_up
+// TODO: add API versioning (/v1/)
+// TODO: split hub getOrCreate into two routes: POST /hub (create) and GET /hub/:hub_id (reconnect)
+// TODO: add heartbeat mechanism for /publish and /listen to detect dead connections
+// TODO: move hardcoded port to cfg
+// TODO: handle engine.Run() error instead of discarding it
+// TODO: handle limiter.NewRateFromFormatted() error instead of discarding it
 func NewRouter(cfg *models.Config, pool *models.Pool, logger *zap.Logger, atom zap.AtomicLevel) {
 	userAPI := user.UserAPI{DB: user.NewUserDB(pool)}
 	authAPI := auth.AuthAPI{DB: auth.NewAuthDB(pool), Cfg: cfg}

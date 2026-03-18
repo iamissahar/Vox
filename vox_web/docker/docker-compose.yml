@@ -5,7 +5,6 @@ services:
     ports:
       - target: 80
         published: 9082
-        mode: host
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost/health || exit 1"]
       interval: 15s
