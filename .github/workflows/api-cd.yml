@@ -168,28 +168,50 @@ jobs:
             WAIT_COUNT=0
 
             until [ $WAIT_COUNT -ge $MAX_WAIT ]; do
-              REPLICAS=$(docker service ls \
-                --filter name=vox_stack_vox \
-                --format '{{.Replicas}}')
+              ALL_HEALTHY=true
 
-              FAILED=$(docker service ps vox_stack_vox \
-                --filter "desired-state=running" \
-                --no-trunc \
+              for SERVICE in vox_stack_vox vox_stack_db vox_stack_loki vox_stack_grafana; do
+                REPLICAS=$(docker service ls \
+                  --filter name=$SERVICE \
+                  --format '{{.Replicas}}')
+
+                DESIRED=$(echo $REPLICAS | cut -d'/' -f2)
+                RUNNING=$(echo $REPLICAS | cut -d'/' -f1)
+
+                FAILED=$(docker service ps $SERVICE \
+                  --filter "desired-state=running" \
+                  --no-trunc \
+                  --format '{{.CurrentState}}' \
+                  | grep -c "Failed" || true)
+
+                if [ -z "$REPLICAS" ] || [ "$RUNNING" != "$DESIRED" ] || [ "$FAILED" -gt 0 ]; then
+                  echo "[$WAIT_COUNT/$MAX_WAIT] $SERVICE not ready: $REPLICAS failed=$FAILED"
+                  ALL_HEALTHY=false
+                fi
+              done
+
+              # migrate — одноразовый, проверяем что завершился успешно
+              MIGRATE_STATE=$(docker service ps vox_stack_migrate \
                 --format '{{.CurrentState}}' \
-                | grep -c "Failed" || true)
+                | head -1)
 
-              if [ "$REPLICAS" = "2/2" ] && [ "$FAILED" -eq 0 ]; then
-                echo "Deployment healthy — 2/2 replicas running."
+              if [[ "$MIGRATE_STATE" != Complete* ]]; then
+                echo "[$WAIT_COUNT/$MAX_WAIT] migrate not complete: $MIGRATE_STATE"
+                ALL_HEALTHY=false
+              fi
+
+              if [ "$ALL_HEALTHY" = true ]; then
+                echo "All services healthy."
                 break
               fi
 
-              echo "[$WAIT_COUNT/$MAX_WAIT] replicas: $REPLICAS, failed tasks: $FAILED"
               sleep 10
               WAIT_COUNT=$((WAIT_COUNT + 1))
             done
 
             if [ $WAIT_COUNT -ge $MAX_WAIT ]; then
-              echo "ERROR: Deployment timed out after $((MAX_WAIT * 10))s"
+              echo "ERROR: Deployment timed out"
+              docker service ls
               exit 1
             fi
 

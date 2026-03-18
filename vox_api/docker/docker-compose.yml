@@ -95,7 +95,7 @@ services:
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
-        /app/goose -dir /app/migrations postgres \
+        /app/goose -dir /app/db/migrations postgres \
           "postgres://$$(cat /run/secrets/POSTGRES_USER_FILE):$$(cat /run/secrets/POSTGRES_PASSWORD_FILE)@db:5432/$$(cat /run/secrets/POSTGRES_DB_NAME_FILE)?sslmode=$$(cat /run/secrets/POSTGRES_SSLMODE_FILE)" \
           up
     secrets:
