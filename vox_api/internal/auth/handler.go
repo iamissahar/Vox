@@ -211,7 +211,7 @@ func (a *AuthAPI) ProviderCallbackHandler(ctx *gin.Context) {
 	}
 
 	setTokenCookies(ctx, accessToken, refreshToken)
-	ctx.Redirect(http.StatusTemporaryRedirect, a.Cfg.FrontendURL)
+	ctx.Redirect(http.StatusTemporaryRedirect, a.Cfg.FrontendURL+"/#/admin")
 }
 
 // SignUpHandler godoc
