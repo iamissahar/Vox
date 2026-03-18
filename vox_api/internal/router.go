@@ -95,6 +95,7 @@ func NewRouter(cfg *models.Config, pool *models.Pool, logger *zap.Logger, atom z
 	hostAndHubs := hub.NewHostAndHubs()
 
 	engine := gin.New()
+	engine.RedirectTrailingSlash = false
 
 	engine.Use(zaplogger(logger))
 	engine.Use(recovery(logger))
