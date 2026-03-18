@@ -333,6 +333,7 @@ const AdminPage: React.FC<AdminPageProps> = ({
     setHubsErr("");
     try {
       const data = await hubApi.listMine();
+      // Filter out empty strings that the API may return
       setHubs((data.hub_ids ?? []).filter((id) => id !== ""));
     } catch {
       setHubsErr("Failed to load hubs.");
@@ -350,6 +351,7 @@ const AdminPage: React.FC<AdminPageProps> = ({
     setHubsErr("");
     try {
       const data = await hubApi.createAuto();
+      // Navigate to the broadcast page for the newly created hub
       navigate(`#/broadcast/${data.hub_id}`);
     } catch (e) {
       if (e instanceof ApiError) {
@@ -357,9 +359,10 @@ const AdminPage: React.FC<AdminPageProps> = ({
       } else {
         setHubsErr("Failed to create hub.");
       }
-    } finally {
       setCreating(false);
     }
+    // Note: we intentionally don't reset `creating` on success because
+    // we're navigating away — resetting it would cause a flicker.
   };
 
   // Voice recording
@@ -525,9 +528,19 @@ const AdminPage: React.FC<AdminPageProps> = ({
                   opacity: creating ? 0.7 : 1,
                   whiteSpace: "nowrap",
                   flexShrink: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
                 }}
               >
-                {creating ? "Creating…" : "+ New hub"}
+                {creating ? (
+                  <>
+                    <MiniSpinner />
+                    Creating…
+                  </>
+                ) : (
+                  "+ New hub"
+                )}
               </button>
             </div>
 

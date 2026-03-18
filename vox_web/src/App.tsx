@@ -7,6 +7,7 @@ import LoginPage from "./pages/LoginPage";
 import AdminPage from "./pages/AdminPage";
 import RoomJoinPage from "./pages/RoomJoinPage";
 import RoomPage from "./pages/RoomPage";
+import BroadcastPage from "./pages/BroadcastPage";
 
 const App: React.FC = () => {
   const { route, navigate } = useRouter();
@@ -83,6 +84,14 @@ const App: React.FC = () => {
 
       case "#/room":
         return <RoomJoinPage navigate={navigate} />;
+
+      case "#/broadcast":
+        return (
+          <BroadcastPage
+            hubId={route.replace("#/broadcast/", "")}
+            navigate={navigate}
+          />
+        );
 
       default:
         return (
