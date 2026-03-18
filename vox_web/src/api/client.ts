@@ -18,7 +18,13 @@ class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+const MISSING_COOKIE_CODE = 3;
+
+async function request<T>(
+  path: string,
+  options: RequestInit = {},
+  isRetry = false,
+): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     credentials: "include",
     headers: {
@@ -27,17 +33,26 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     },
     ...options,
   });
+
   if (res.status === 204) {
     return undefined as T;
   }
+
   const data = await res.json().catch(() => null);
+
   if (!res.ok) {
     const errData = data as HttpErrorResponse | null;
-    throw new ApiError(
-      errData?.error?.code ?? res.status,
-      errData?.error?.message ?? "Unknown error",
-    );
+    const code = errData?.error?.code ?? res.status;
+    const message = errData?.error?.message ?? "Unknown error";
+
+    if (code === MISSING_COOKIE_CODE && !isRetry) {
+      await request<void>("/auth/refresh", { method: "POST" });
+      return request<T>(path, options, true);
+    }
+
+    throw new ApiError(code, message);
   }
+
   return data as T;
 }
 
