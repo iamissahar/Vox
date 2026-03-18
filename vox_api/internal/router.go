@@ -141,13 +141,13 @@ func NewRouter(cfg *models.Config, pool *models.Pool, logger *zap.Logger, atom z
 		// change it for something else in the future
 		withTimeOutGroup.Use(hubAPI.PutCache(hostAndHubs))
 		{
-			withTimeOutGroup.POST("/", hubAPI.NewHubHandler)
+			withTimeOutGroup.POST("", hubAPI.NewHubHandler)
 		}
 
 		withHubIDGroup := hubGroup.Group("/:hub_id")
 		withHubIDGroup.Use(hubAPI.IsHubIDValid)
 		{
-			withHubIDGroup.DELETE("/", timeout, hubAPI.PutCache(hostAndHubs), hubAPI.DeleteHubHandler)
+			withHubIDGroup.DELETE("", timeout, hubAPI.PutCache(hostAndHubs), hubAPI.DeleteHubHandler)
 			withHubIDGroup.GET("/listen", hubAPI.ListenHandler)
 
 			privateHubGroup := withHubIDGroup.Group("/")
