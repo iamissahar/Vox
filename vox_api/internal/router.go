@@ -87,20 +87,16 @@ func timeout(c *gin.Context) {
 }
 
 func NewRouter(cfg *models.Config, pool *models.Pool, logger *zap.Logger, atom zap.AtomicLevel) {
+	userAPI := user.UserAPI{DB: user.NewUserDB(pool)}
+	authAPI := auth.AuthAPI{DB: auth.NewAuthDB(pool), Cfg: cfg}
+	hubAPI := hub.HubAPI{DB: hub.NewHubDB(pool), Cfg: cfg}
+	voiceAPI := voice.VoiceAPI{DB: voice.NewVoiceDB(pool), Cfg: cfg}
+	logsAPI := logs.LogsAPI{Atomic: atom}
+
 	engine := gin.New()
 
 	engine.Use(zaplogger(logger))
 	engine.Use(recovery(logger))
-	engine.Use(cors.New(cors.Config{
-		AllowOrigins: []string{
-			"https://bogdanantonovich.com",
-			"https://www.bogdanantonovich.com",
-		},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Content-Type", "Authorization"},
-		AllowCredentials: true,
-		MaxAge:           86400 * time.Second,
-	}))
 	rate, _ := limiter.NewRateFromFormatted("100-M")
 	store := memory.NewStore()
 	engine.Use(mgin.NewMiddleware(limiter.New(store, rate)))
@@ -112,14 +108,19 @@ func NewRouter(cfg *models.Config, pool *models.Pool, logger *zap.Logger, atom z
 		c.Next()
 	})
 
-	userAPI := user.UserAPI{DB: user.NewUserDB(pool)}
-	authAPI := auth.AuthAPI{DB: auth.NewAuthDB(pool), Cfg: cfg}
-	hubAPI := hub.HubAPI{DB: hub.NewHubDB(pool), Cfg: cfg}
-	voiceAPI := voice.VoiceAPI{DB: voice.NewVoiceDB(pool), Cfg: cfg}
-	logsAPI := logs.LogsAPI{Atomic: atom}
+	corsGroups := engine.Group("/")
+	corsGroups.Use(cors.New(cors.Config{
+		AllowOrigins: []string{
+			"https://bogdanantonovich.com",
+			"https://www.bogdanantonovich.com",
+		},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Content-Type", "Authorization"},
+		AllowCredentials: true,
+		MaxAge:           86400 * time.Second,
+	}))
 
-	// public routes
-	authGroup := engine.Group("/auth")
+	authGroup := corsGroups.Group("/auth")
 	authGroup.Use(timeout)
 	{
 		providerGroup := authGroup.Group("/:provider")
@@ -131,7 +132,7 @@ func NewRouter(cfg *models.Config, pool *models.Pool, logger *zap.Logger, atom z
 		authGroup.POST("/sign_up", authAPI.SignUpHandler)
 	}
 
-	hubGroup := engine.Group("/hub/:hub_id")
+	hubGroup := corsGroups.Group("/hub/:hub_id")
 	hubGroup.Use(hubAPI.IsHubIDValid)
 	{
 		privateHubGroup := hubGroup.Group("/")
@@ -149,7 +150,7 @@ func NewRouter(cfg *models.Config, pool *models.Pool, logger *zap.Logger, atom z
 		hubGroup.GET("/listen", hubAPI.ListenHandler)
 	}
 
-	userGroup := engine.Group("/user")
+	userGroup := corsGroups.Group("/user")
 	userGroup.Use(authAPI.IsAuthorized)
 	{
 		userGroup.GET("/info", timeout, userAPI.InfoHandler)
@@ -159,17 +160,18 @@ func NewRouter(cfg *models.Config, pool *models.Pool, logger *zap.Logger, atom z
 		}
 	}
 
-	// helpers and admin routes
+	adminGroup := corsGroups.Group("/admin")
+	adminGroup.Use(authAPI.IsAdmin)
+	{
+		adminGroup.PUT("/logs/level", logsAPI.LevelHandler)
+	}
+
+	// public helpers
 	helpersGroup := engine.Group("/")
 	helpersGroup.Use(timeout)
 	{
 		helpersGroup.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 		helpersGroup.GET("/health", healthHandler)
-		adminGroup := helpersGroup.Group("/admin")
-		adminGroup.Use(authAPI.IsAdmin)
-		{
-			adminGroup.PUT("/logs/level", logsAPI.LevelHandler)
-		}
 	}
 
 	logger.Info("API started", zap.String("env", "prod"), zap.Int("port", 9081))

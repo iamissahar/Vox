@@ -6,6 +6,12 @@ services:
       - target: 80
         published: 9082
         mode: host
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     deploy:
       replicas: 2
       update_config:
@@ -27,9 +33,3 @@ services:
         reservations:
           cpus: "0.1"
           memory: 32M
-      healthcheck:
-        test: ["CMD-SHELL", "nginx -t 2>/dev/null || exit 1"]
-        interval: 15s
-        timeout: 5s
-        retries: 3
-        start_period: 10s
