@@ -96,6 +96,11 @@ func (pa *PostgresAuth) GetUser(ctx context.Context, log *zap.Logger, providerID
 
 	err = tx.QueryRow(ctx, "SELECT user_id FROM users_and_providers WHERE provider_id = $1 AND user_provider_id = $2", providerID, userProviderID).Scan(&u.ID)
 	if errors.Is(err, pgx.ErrNoRows) {
+		rollbackErr := tx.Rollback(ctx)
+		if rollbackErr != nil {
+			log.Error("Failed to rollback transaction", zap.Error(rollbackErr))
+			return u, rollbackErr
+		}
 		return u, nil
 	}
 	if err != nil {
