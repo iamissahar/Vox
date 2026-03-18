@@ -200,11 +200,13 @@ func newLogger() (*zap.Logger, zap.AtomicLevel, *os.File, *os.File) {
 	}
 
 	lokiSyncer := lokisync.NewBuffered(os.Getenv("LOKI_URL"), "vox", 1000)
+	colorCfg := loggerCfg
+	colorCfg.EncodeLevel = zapcore.CapitalColorLevelEncoder
 
 	core := zapcore.NewTee(
 		// stdout — JSON, ISO8601, управляемый уровень
 		zapcore.NewCore(
-			zapcore.NewConsoleEncoder(loggerCfg),
+			zapcore.NewConsoleEncoder(colorCfg),
 			zapcore.AddSync(os.Stdout),
 			atom,
 		),
