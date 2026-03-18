@@ -168,7 +168,7 @@ func TestProviderCallbackHandler_HappyPath_ExistingUser_Google(t *testing.T) {
 	r.ServeHTTP(w, helpers.CallbackRequest("google", "valid-code"))
 
 	require.Equal(t, http.StatusTemporaryRedirect, w.Code)
-	assert.Equal(t, "https://frontend.example.com", w.Header().Get("Location"))
+	assert.Equal(t, "https://frontend.example.com/#/admin", w.Header().Get("Location"))
 
 	var cookieNames []string
 	for _, c := range w.Result().Cookies() {
@@ -200,7 +200,7 @@ func TestProviderCallbackHandler_HappyPath_NewUser_GitHub(t *testing.T) {
 	r.ServeHTTP(w, helpers.CallbackRequest("github", "valid-code"))
 
 	require.Equal(t, http.StatusTemporaryRedirect, w.Code)
-	assert.Equal(t, "https://frontend.example.com", w.Header().Get("Location"))
+	assert.Equal(t, "https://frontend.example.com/#/admin", w.Header().Get("Location"))
 
 	var cookieNames []string
 	for _, c := range w.Result().Cookies() {
