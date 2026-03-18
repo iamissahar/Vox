@@ -164,9 +164,7 @@ func NewRouter(cfg *models.Config, pool *models.Pool, logger *zap.Logger, atom z
 	helpersGroup.Use(timeout)
 	{
 		helpersGroup.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
-		helpersGroup.GET("/health", func(ctx *gin.Context) {
-			ctx.Status(http.StatusOK)
-		})
+		helpersGroup.GET("/health", healthHandler)
 		adminGroup := helpersGroup.Group("/admin")
 		adminGroup.Use(authAPI.IsAdmin)
 		{
