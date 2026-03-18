@@ -41,11 +41,17 @@ const App: React.FC = () => {
   // Parse route
   const roomMatch = route.match(/^#\/room\/(.+)$/);
   const roomId = roomMatch ? roomMatch[1] : null;
+  const broadcastMatch = route.match(/^#\/broadcast\/(.+)$/);
+  const broadcastHubId = broadcastMatch ? broadcastMatch[1] : null;
 
   const renderPage = () => {
     // Dynamic room route
     if (roomId) {
       return <RoomPage roomId={roomId} navigate={navigate} />;
+    }
+
+    if (broadcastHubId) {
+      return <BroadcastPage hubId={broadcastHubId} navigate={navigate} />;
     }
 
     switch (route) {
@@ -84,14 +90,6 @@ const App: React.FC = () => {
 
       case "#/room":
         return <RoomJoinPage navigate={navigate} />;
-
-      case "#/broadcast":
-        return (
-          <BroadcastPage
-            hubId={route.replace("#/broadcast/", "")}
-            navigate={navigate}
-          />
-        );
 
       default:
         return (
