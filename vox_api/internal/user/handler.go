@@ -62,9 +62,9 @@ func (u *UserAPI) InfoHandler(ctx *gin.Context) {
 // @Produce      json
 // @Param        body  body  object{id=string}  true  "User payload"
 // @Success      200  {object}  object{hub_ids=[]string}  "List of hub IDs"
-// @Failure      400  {object}  mod.ErrorResponse  "Invalid request body"
-// @Failure      403  {object}  mod.ErrorResponse  "User is not authenticated"
-// @Failure      500  {object}  mod.ErrorResponse  "Internal server error"
+// @Failure      400  {object}  models.HttpErrorResponse  "Invalid request body"
+// @Failure      403  {object}  models.HttpErrorResponse  "User is not authenticated"
+// @Failure      500  {object}  models.HttpErrorResponse  "Internal server error"
 // @Security     BearerAuth
 // @Router       /user/hubs [post]
 func (uapi *UserAPI) HubsHandler(ctx *gin.Context) {

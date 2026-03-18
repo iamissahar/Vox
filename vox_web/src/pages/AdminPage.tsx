@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import Logo from "../components/Logo";
 import WaveVisualizer from "../components/WaveVisualizer";
 import { hub as hubApi, user as userApi, ApiError } from "../api/client";
@@ -27,6 +27,291 @@ const LANGUAGES = [
 
 type Tab = "broadcast" | "voice" | "profile";
 
+// ─── Individual hub row ───────────────────────────────────────────────────────
+
+interface HubRowProps {
+  hubId: string;
+  userId: string;
+  navigate: (to: string) => void;
+  onDeleted: (hubId: string) => void;
+}
+
+const HubRow: React.FC<HubRowProps> = ({
+  hubId,
+  userId,
+  navigate,
+  onDeleted,
+}) => {
+  const [lang, setLang] = useState("en");
+  const [broadcasting, setBroadcasting] = useState(false);
+  const [active, setActive] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [err, setErr] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const intervalRef = useRef<number | null>(null);
+
+  const startBroadcast = async () => {
+    setErr("");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+      mediaRecorderRef.current = recorder;
+      chunksRef.current = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      recorder.start(2000);
+      intervalRef.current = window.setInterval(async () => {
+        if (chunksRef.current.length === 0) return;
+        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        chunksRef.current = [];
+        try {
+          await hubApi.publish(hubId, blob, lang);
+          setActive(true);
+        } catch {
+          setActive(false);
+        }
+      }, 2500);
+      setBroadcasting(true);
+      setActive(true);
+    } catch {
+      setErr("Microphone access denied.");
+    }
+  };
+
+  const stopBroadcast = () => {
+    mediaRecorderRef.current?.stop();
+    mediaRecorderRef.current?.stream.getTracks().forEach((t) => t.stop());
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    setBroadcasting(false);
+    setActive(false);
+  };
+
+  const handleDelete = async () => {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      setTimeout(() => setConfirmDelete(false), 3000);
+      return;
+    }
+    setDeleting(true);
+    try {
+      await hubApi.delete(hubId, userId);
+      onDeleted(hubId);
+    } catch {
+      setErr("Failed to delete.");
+      setDeleting(false);
+      setConfirmDelete(false);
+    }
+  };
+
+  const handleReconnect = async () => {
+    setReconnecting(true);
+    setErr("");
+    try {
+      await hubApi.reconnect(hubId, userId);
+    } catch {
+      setErr("Reconnect failed.");
+    } finally {
+      setReconnecting(false);
+    }
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(`${window.location.origin}/#/room/${hubId}`);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  useEffect(() => () => stopBroadcast(), []);
+
+  return (
+    <div
+      style={{
+        background: "#0c0c0c",
+        border: `1px solid ${broadcasting ? "#e8ff5e22" : "#191919"}`,
+        borderRadius: 12,
+        padding: "12px 14px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+        transition: "border-color 0.3s",
+      }}
+    >
+      {/* Top row: indicator + id + actions */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div
+          style={{
+            width: 7,
+            height: 7,
+            borderRadius: "50%",
+            flexShrink: 0,
+            background: broadcasting ? "#e8ff5e" : "#2a2a2a",
+            boxShadow: broadcasting ? "0 0 7px #e8ff5e66" : "none",
+            transition: "all 0.3s",
+          }}
+        />
+        <span
+          style={{
+            fontFamily: "DM Mono",
+            fontSize: 13,
+            color: "#ccc",
+            flex: 1,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {hubId}
+        </span>
+        {broadcasting && (
+          <span
+            style={{
+              fontSize: 10,
+              fontFamily: "DM Mono",
+              letterSpacing: "0.1em",
+              color: "#e8ff5e",
+              background: "#e8ff5e14",
+              border: "1px solid #e8ff5e33",
+              borderRadius: 4,
+              padding: "1px 6px",
+              flexShrink: 0,
+            }}
+          >
+            LIVE
+          </span>
+        )}
+
+        {/* Icon buttons */}
+        <button
+          title="Open listener room"
+          onClick={() => navigate(`#/room/${hubId}`)}
+          style={iconBtnStyle}
+        >
+          <IconShare />
+        </button>
+        <button
+          title="Reconnect stream"
+          onClick={handleReconnect}
+          disabled={reconnecting}
+          style={iconBtnStyle}
+        >
+          {reconnecting ? <MiniSpinner /> : <IconReconnect />}
+        </button>
+        <button
+          title={confirmDelete ? "Click again to confirm" : "Delete hub"}
+          onClick={handleDelete}
+          disabled={deleting}
+          style={{
+            ...iconBtnStyle,
+            color: confirmDelete ? "#ff5e5e" : "#555",
+            background: confirmDelete ? "#ff5e5e0a" : "none",
+            border: `1px solid ${confirmDelete ? "#ff5e5e33" : "transparent"}`,
+          }}
+        >
+          {deleting ? <MiniSpinner /> : <IconTrash />}
+        </button>
+      </div>
+
+      {/* Error / confirm notice */}
+      {confirmDelete && !err && (
+        <p style={{ fontSize: 11, color: "#ff5e5e", margin: 0 }}>
+          Click delete again to confirm.
+        </p>
+      )}
+      {err && (
+        <p style={{ fontSize: 11, color: "#ff5e5e", margin: 0 }}>{err}</p>
+      )}
+
+      {/* Bottom row: lang + broadcast + copy */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          flexWrap: "wrap",
+        }}
+      >
+        <select
+          value={lang}
+          onChange={(e) => setLang(e.target.value)}
+          className="lang-select"
+          style={{ fontSize: 12, padding: "4px 8px" }}
+        >
+          {LANGUAGES.map((l) => (
+            <option key={l.code} value={l.code}>
+              {l.label}
+            </option>
+          ))}
+        </select>
+
+        {!broadcasting ? (
+          <button
+            className="btn-primary"
+            onClick={startBroadcast}
+            style={{ fontSize: 12, padding: "5px 14px" }}
+          >
+            ▶ Broadcast
+          </button>
+        ) : (
+          <button
+            className="btn-ghost"
+            onClick={stopBroadcast}
+            style={{
+              fontSize: 12,
+              padding: "5px 14px",
+              borderColor: "#ff5e5e",
+              color: "#ff5e5e",
+            }}
+          >
+            ■ Stop
+          </button>
+        )}
+
+        <button
+          onClick={handleCopy}
+          style={{
+            marginLeft: "auto",
+            background: "none",
+            border: "1px solid #1e1e1e",
+            borderRadius: 6,
+            fontSize: 12,
+            fontFamily: "inherit",
+            padding: "5px 12px",
+            cursor: "pointer",
+            color: copied ? "#6fff6f" : "#555",
+            transition: "color 0.2s",
+          }}
+        >
+          {copied ? "✓ Copied" : "Copy link"}
+        </button>
+      </div>
+
+      {/* Waveform when live */}
+      {broadcasting && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            paddingTop: 4,
+            borderTop: "1px solid #141414",
+          }}
+        >
+          <WaveVisualizer active={active} size={36} />
+          <span style={{ fontSize: 11, color: "#444" }}>Streaming…</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── Main page ────────────────────────────────────────────────────────────────
+
 const AdminPage: React.FC<AdminPageProps> = ({
   navigate,
   currentUser,
@@ -34,101 +319,58 @@ const AdminPage: React.FC<AdminPageProps> = ({
 }) => {
   const [tab, setTab] = useState<Tab>("broadcast");
 
-  // Broadcast state
-  const [hubId, setHubId] = useState("");
-  const [lang, setLang] = useState("en");
-  const [hubCreated, setHubCreated] = useState(false);
-  const [broadcasting, setBroadcasting] = useState(false);
-  const [active, setActive] = useState(false);
-  const [hubErr, setHubErr] = useState("");
-  const [hubLoading, setHubLoading] = useState(false);
+  // Broadcast / hubs state
+  const [hubs, setHubs] = useState<string[]>([]);
+  const [hubsLoading, setHubsLoading] = useState(false);
+  const [hubsErr, setHubsErr] = useState("");
+  const [creating, setCreating] = useState(false);
 
   // Voice state
   const [textRef, setTextRef] = useState("");
   const [voiceRecording, setVoiceRecording] = useState(false);
-  const [voiceStatus, setVoiceStatus] = useState<"idle" | "recording" | "uploading" | "done" | "error">("idle");
+  const [voiceStatus, setVoiceStatus] = useState<
+    "idle" | "recording" | "uploading" | "done" | "error"
+  >("idle");
   const voiceRecorderRef = useRef<MediaRecorder | null>(null);
   const voiceChunksRef = useRef<Blob[]>([]);
 
-  // Broadcast recording
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const broadcastIntervalRef = useRef<number | null>(null);
+  const userId = currentUser?.id ?? "";
 
-  const createHub = async () => {
-    if (!hubId.trim()) {
-      setHubErr("Please enter a hub ID.");
-      return;
-    }
-    setHubLoading(true);
-    setHubErr("");
+  // Fetch hub list on mount / tab switch
+  const fetchHubs = useCallback(async () => {
+    if (!userId) return;
+    setHubsLoading(true);
+    setHubsErr("");
     try {
-      await hubApi.create(hubId.trim());
-      setHubCreated(true);
-    } catch (e) {
-      if (e instanceof ApiError) {
-        setHubErr(
-          e.code === 409
-            ? "A hub with this ID already exists."
-            : e.message
-        );
-      } else {
-        setHubErr("Failed to create hub.");
-      }
-    } finally {
-      setHubLoading(false);
-    }
-  };
-
-  const startBroadcast = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
-      mediaRecorderRef.current = recorder;
-      chunksRef.current = [];
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-
-      // Send chunks every 2 seconds
-      recorder.start(2000);
-
-      broadcastIntervalRef.current = window.setInterval(async () => {
-        if (chunksRef.current.length === 0) return;
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        chunksRef.current = [];
-        try {
-          await hubApi.publish(hubId.trim(), blob, lang);
-          setActive(true);
-        } catch {
-          setActive(false);
-        }
-      }, 2500);
-
-      setBroadcasting(true);
-      setActive(true);
+      const data = await hubApi.listMine(userId);
+      setHubs(data.hub_ids ?? []);
     } catch {
-      setHubErr("Microphone access denied.");
+      setHubsErr("Failed to load hubs.");
+    } finally {
+      setHubsLoading(false);
     }
-  };
-
-  const stopBroadcast = () => {
-    mediaRecorderRef.current?.stop();
-    mediaRecorderRef.current?.stream
-      .getTracks()
-      .forEach((t) => t.stop());
-    if (broadcastIntervalRef.current)
-      clearInterval(broadcastIntervalRef.current);
-    setBroadcasting(false);
-    setActive(false);
-  };
+  }, [userId]);
 
   useEffect(() => {
-    return () => {
-      stopBroadcast();
-    };
-  }, []);
+    if (tab === "broadcast") fetchHubs();
+  }, [tab, fetchHubs]);
+
+  const createHub = async () => {
+    setCreating(true);
+    setHubsErr("");
+    try {
+      const data = await hubApi.createAuto(userId);
+      setHubs((prev) => [data.hub_id, ...prev]);
+    } catch (e) {
+      if (e instanceof ApiError) {
+        setHubsErr(e.message);
+      } else {
+        setHubsErr("Failed to create hub.");
+      }
+    } finally {
+      setCreating(false);
+    }
+  };
 
   // Voice recording
   const startVoiceRecording = async () => {
@@ -154,7 +396,6 @@ const AdminPage: React.FC<AdminPageProps> = ({
     voiceRecorderRef.current.stream.getTracks().forEach((t) => t.stop());
     setVoiceRecording(false);
     setVoiceStatus("uploading");
-
     await new Promise<void>((res) => {
       voiceRecorderRef.current!.onstop = async () => {
         const blob = new Blob(voiceChunksRef.current, { type: "audio/webm" });
@@ -236,9 +477,9 @@ const AdminPage: React.FC<AdminPageProps> = ({
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          justifyContent: "center",
+          justifyContent: "flex-start",
           padding: 32,
-          gap: 32,
+          gap: 24,
           maxWidth: 500,
           margin: "0 auto",
           width: "100%",
@@ -246,232 +487,120 @@ const AdminPage: React.FC<AdminPageProps> = ({
       >
         {/* ─── BROADCAST TAB ─── */}
         {tab === "broadcast" && (
-          <>
-            {!hubCreated ? (
-              <div
-                className="card slide-up"
-                style={{
-                  width: "100%",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 16,
-                }}
-              >
+          <div
+            className="slide-up"
+            style={{
+              width: "100%",
+              display: "flex",
+              flexDirection: "column",
+              gap: 16,
+            }}
+          >
+            {/* Header */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                justifyContent: "space-between",
+                gap: 12,
+              }}
+            >
+              <div>
                 <h2
                   style={{
                     fontSize: 20,
                     fontWeight: 400,
                     letterSpacing: "-0.03em",
+                    margin: 0,
                   }}
                 >
-                  Create a hub
+                  Hubs
                 </h2>
-                <p style={{ color: "#555", fontSize: 13, lineHeight: 1.6 }}>
-                  Choose a unique ID for your broadcast room. Share it with
-                  listeners.
-                </p>
-                <input
-                  className="input-field"
-                  placeholder="Hub ID (e.g. my-event-2025)"
-                  value={hubId}
-                  onChange={(e) => setHubId(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && createHub()}
-                />
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <label style={{ fontSize: 12, color: "#555" }}>
-                    Broadcast language
-                  </label>
-                  <select
-                    className="lang-select"
-                    value={lang}
-                    onChange={(e) => setLang(e.target.value)}
-                  >
-                    {LANGUAGES.map((l) => (
-                      <option key={l.code} value={l.code}>
-                        {l.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {hubErr && (
-                  <p style={{ color: "#ff5e5e", fontSize: 13 }}>{hubErr}</p>
-                )}
-                <button
-                  className="btn-primary"
-                  onClick={createHub}
-                  disabled={hubLoading}
-                  style={{ opacity: hubLoading ? 0.7 : 1 }}
+                <p
+                  style={{
+                    color: "#555",
+                    fontSize: 13,
+                    lineHeight: 1.6,
+                    margin: "4px 0 0",
+                  }}
                 >
-                  {hubLoading ? "Creating…" : "Create hub →"}
-                </button>
+                  Your broadcast rooms.
+                </p>
               </div>
-            ) : (
-              <div
-                className="slide-up"
+              <button
+                className="btn-primary"
+                onClick={createHub}
+                disabled={creating || !userId}
                 style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 32,
-                  width: "100%",
+                  opacity: creating ? 0.7 : 1,
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
                 }}
               >
-                {/* Live tag */}
-                <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                  <div className="tag">
-                    <div
-                      className="dot-live"
-                      style={{
-                        background: broadcasting ? "#e8ff5e" : "#333",
-                      }}
-                    />
-                    <span
-                      style={{
-                        fontFamily: "DM Mono",
-                        letterSpacing: "0.06em",
-                      }}
-                    >
-                      {hubId}
-                    </span>
-                  </div>
-                  <span
-                    style={{
-                      fontSize: 12,
-                      color: "#333",
-                    }}
-                  >
-                    {broadcasting ? "live" : "ready"}
-                  </span>
-                </div>
+                {creating ? "Creating…" : "+ New hub"}
+              </button>
+            </div>
 
-                {/* Wave visualizer */}
+            {hubsErr && (
+              <p style={{ color: "#ff5e5e", fontSize: 13, margin: 0 }}>
+                {hubsErr}
+              </p>
+            )}
+
+            {/* List */}
+            {hubsLoading ? (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "16px 0",
+                }}
+              >
                 <div
                   style={{
-                    position: "relative",
-                    width: 200,
-                    height: 200,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
+                    width: 18,
+                    height: 18,
+                    border: "2px solid #222",
+                    borderTopColor: "#e8ff5e",
+                    borderRadius: "50%",
+                    animation: "spin 0.8s linear infinite",
                   }}
-                >
-                  {broadcasting && (
-                    <>
-                      <div
-                        style={{
-                          position: "absolute",
-                          width: 160,
-                          height: 160,
-                          borderRadius: "50%",
-                          border: "1px solid rgba(232,255,94,0.15)",
-                          animation: "pulse-ring 2s ease infinite",
-                        }}
-                      />
-                      <div
-                        style={{
-                          position: "absolute",
-                          width: 190,
-                          height: 190,
-                          borderRadius: "50%",
-                          border: "1px solid rgba(232,255,94,0.07)",
-                          animation: "pulse-ring2 2s ease infinite",
-                        }}
-                      />
-                    </>
-                  )}
-                  <WaveVisualizer active={active} size={120} />
-                </div>
-
-                {/* Controls */}
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 12,
-                    width: "100%",
-                    flexWrap: "wrap",
-                    justifyContent: "center",
-                  }}
-                >
-                  {!broadcasting ? (
-                    <button
-                      className="btn-primary"
-                      onClick={startBroadcast}
-                      style={{ flex: 1 }}
-                    >
-                      Start broadcasting
-                    </button>
-                  ) : (
-                    <button
-                      className="btn-ghost"
-                      onClick={stopBroadcast}
-                      style={{
-                        flex: 1,
-                        borderColor: "#ff5e5e",
-                        color: "#ff5e5e",
-                      }}
-                    >
-                      Stop
-                    </button>
-                  )}
-                  <button
-                    className="btn-ghost"
-                    onClick={() => {
-                      navigate(`#/room/${hubId}`);
-                    }}
-                    style={{ flex: 1 }}
-                  >
-                    Share link →
-                  </button>
-                </div>
-
-                {/* Share URL */}
-                <div
-                  style={{
-                    background: "#0a0a0a",
-                    border: "1px solid #1a1a1a",
-                    borderRadius: 10,
-                    padding: "10px 16px",
-                    width: "100%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 12,
-                  }}
-                >
-                  <span
-                    style={{
-                      fontFamily: "DM Mono",
-                      fontSize: 12,
-                      color: "#555",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {window.location.origin}/#/room/{hubId}
-                  </span>
-                  <button
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "#e8ff5e",
-                      fontSize: 12,
-                      cursor: "pointer",
-                      fontFamily: "inherit",
-                      whiteSpace: "nowrap",
-                    }}
-                    onClick={() =>
-                      navigator.clipboard.writeText(
-                        `${window.location.origin}/#/room/${hubId}`
-                      )
+                />
+                <span style={{ color: "#444", fontSize: 13 }}>Loading…</span>
+              </div>
+            ) : hubs.length === 0 ? (
+              <div
+                style={{
+                  border: "1px dashed #1e1e1e",
+                  borderRadius: 12,
+                  padding: "32px 24px",
+                  textAlign: "center",
+                }}
+              >
+                <p style={{ color: "#333", fontSize: 13, margin: 0 }}>
+                  No hubs yet.
+                </p>
+                <p style={{ color: "#2a2a2a", fontSize: 12, marginTop: 6 }}>
+                  Create one to start broadcasting.
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {hubs.map((id) => (
+                  <HubRow
+                    key={id}
+                    hubId={id}
+                    userId={userId}
+                    navigate={navigate}
+                    onDeleted={(id) =>
+                      setHubs((prev) => prev.filter((h) => h !== id))
                     }
-                  >
-                    Copy
-                  </button>
-                </div>
+                  />
+                ))}
               </div>
             )}
-          </>
+          </div>
         )}
 
         {/* ─── VOICE TAB ─── */}
@@ -501,7 +630,6 @@ const AdminPage: React.FC<AdminPageProps> = ({
                 reference text aloud while recording.
               </p>
             </div>
-
             <textarea
               className="input-field"
               placeholder="Reference text (read this aloud during recording)"
@@ -510,7 +638,6 @@ const AdminPage: React.FC<AdminPageProps> = ({
               rows={4}
               style={{ resize: "none", lineHeight: 1.6 }}
             />
-
             <div
               style={{
                 display: "flex",
@@ -520,9 +647,7 @@ const AdminPage: React.FC<AdminPageProps> = ({
               }}
             >
               {voiceStatus === "recording" && (
-                <div
-                  style={{ display: "flex", alignItems: "center", gap: 8 }}
-                >
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <div className="dot-live" />
                   <span style={{ fontSize: 13, color: "#e8ff5e" }}>
                     Recording…
@@ -551,7 +676,6 @@ const AdminPage: React.FC<AdminPageProps> = ({
                   Failed to upload. Try again.
                 </p>
               )}
-
               {!voiceRecording ? (
                 <button
                   className="btn-primary"
@@ -598,7 +722,6 @@ const AdminPage: React.FC<AdminPageProps> = ({
             >
               Profile
             </h2>
-
             {currentUser.picture && (
               <img
                 src={currentUser.picture}
@@ -611,14 +734,7 @@ const AdminPage: React.FC<AdminPageProps> = ({
                 }}
               />
             )}
-
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 8,
-              }}
-            >
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {[
                 { label: "Name", value: currentUser.name },
                 { label: "Email", value: currentUser.email },
@@ -646,7 +762,6 @@ const AdminPage: React.FC<AdminPageProps> = ({
                 </div>
               ))}
             </div>
-
             <button className="btn-ghost" onClick={onLogout}>
               Log out
             </button>
@@ -656,5 +771,86 @@ const AdminPage: React.FC<AdminPageProps> = ({
     </div>
   );
 };
+
+// ─── Shared styles / icons ────────────────────────────────────────────────────
+
+const iconBtnStyle: React.CSSProperties = {
+  background: "none",
+  border: "1px solid transparent",
+  borderRadius: 6,
+  color: "#555",
+  cursor: "pointer",
+  width: 28,
+  height: 28,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 0,
+  transition: "all 0.15s",
+  flexShrink: 0,
+};
+
+const IconShare = () => (
+  <svg
+    width="13"
+    height="13"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+    <polyline points="16 6 12 2 8 6" />
+    <line x1="12" y1="2" x2="12" y2="15" />
+  </svg>
+);
+
+const IconReconnect = () => (
+  <svg
+    width="13"
+    height="13"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <polyline points="23 4 23 10 17 10" />
+    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+  </svg>
+);
+
+const IconTrash = () => (
+  <svg
+    width="13"
+    height="13"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <polyline points="3 6 5 6 21 6" />
+    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+    <path d="M10 11v6M14 11v6M9 6V4h6v2" />
+  </svg>
+);
+
+const MiniSpinner = () => (
+  <div
+    style={{
+      width: 11,
+      height: 11,
+      border: "1.5px solid #333",
+      borderTopColor: "currentColor",
+      borderRadius: "50%",
+      animation: "spin 0.8s linear infinite",
+    }}
+  />
+);
 
 export default AdminPage;

@@ -142,9 +142,9 @@ func (h *HubAPI) NewHubHandler(ctx *gin.Context) {
 // @Param        hub_id  path  string        true  "Hub ID"
 // @Param        body    body  object{id=string}  true  "User payload"
 // @Success      307  "Temporary redirect to frontend hub publish page"
-// @Failure      400  {object}  mod.ErrorResponse  "Invalid request body"
-// @Failure      403  {object}  mod.ErrorResponse  "User is not authenticated or not the hub owner"
-// @Failure      500  {object}  mod.ErrorResponse  "Internal server error"
+// @Failure      400  {object}  models.HttpErrorResponse  "Invalid request body"
+// @Failure      403  {object}  models.HttpErrorResponse  "User is not authenticated or not the hub owner"
+// @Failure      500  {object}  models.HttpErrorResponse  "Internal server error"
 // @Security     BearerAuth
 // @Router       /hub/{hub_id}/reconnect [get]
 func (h *HubAPI) ReconnectHandler(ctx *gin.Context) {
@@ -203,10 +203,10 @@ func (h *HubAPI) ReconnectHandler(ctx *gin.Context) {
 // @Param        hub_id  path  string             true  "Hub ID"
 // @Param        body    body  object{id=string}  true  "User payload"
 // @Success      204  "Hub successfully deleted"
-// @Failure      400  {object}  mod.ErrorResponse  "Invalid request body"
-// @Failure      403  {object}  mod.ErrorResponse  "User is not authenticated or not the hub owner"
-// @Failure      404  {object}  mod.ErrorResponse  "Hub not found"
-// @Failure      500  {object}  mod.ErrorResponse  "Internal server error"
+// @Failure      400  {object}  models.HttpErrorResponse  "Invalid request body"
+// @Failure      403  {object}  models.HttpErrorResponse  "User is not authenticated or not the hub owner"
+// @Failure      404  {object}  models.HttpErrorResponse  "Hub not found"
+// @Failure      500  {object}  models.HttpErrorResponse  "Internal server error"
 // @Security     BearerAuth
 // @Router       /hub/{hub_id} [delete]
 func (h *HubAPI) DeleteHubHandler(ctx *gin.Context) {
