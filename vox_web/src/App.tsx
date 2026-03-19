@@ -1,104 +1,55 @@
-import React from "react";
-import "./App.css";
-import { useRouter } from "./hooks/useRouter";
-import { useAuth } from "./hooks/useAuth";
-import HomePage from "./pages/HomePage";
-import LoginPage from "./pages/LoginPage";
-import AdminPage from "./pages/AdminPage";
-import RoomJoinPage from "./pages/RoomJoinPage";
-import RoomPage from "./pages/RoomPage";
-import BroadcastPage from "./pages/BroadcastPage";
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './hooks/useAuth';
+import { ProtectedRoute } from './components/ProtectedRoute';
 
-const App: React.FC = () => {
-  const { route, navigate } = useRouter();
-  const { user, isLoading, isAuthenticated, setUser, logout } = useAuth();
+import { HomePage } from './pages/HomePage';
+import { HostDashboardPage } from './pages/HostDashboardPage';
+import { HostBroadcastPage } from './pages/HostBroadcastPage';
+import { ListenerPage } from './pages/ListenerPage';
+import { ProfilePage } from './pages/ProfilePage';
 
-  // Spinner while checking auth
-  if (isLoading) {
-    return (
-      <div
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <div
-          style={{
-            width: 28,
-            height: 28,
-            border: "2px solid #222",
-            borderTopColor: "#e8ff5e",
-            borderRadius: "50%",
-            animation: "spin 0.8s linear infinite",
-          }}
-        />
-      </div>
-    );
-  }
+import './styles/globals.css';
 
-  // Parse route
-  const roomMatch = route.match(/^#\/room\/(.+)$/);
-  const roomId = roomMatch ? roomMatch[1] : null;
-  const broadcastMatch = route.match(/^#\/broadcast\/(.+)$/);
-  const broadcastHubId = broadcastMatch ? broadcastMatch[1] : null;
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <Routes>
+          {/* Public */}
+          <Route path="/" element={<HomePage />} />
+          <Route path="/listen" element={<ListenerPage />} />
 
-  const renderPage = () => {
-    // Dynamic room route
-    if (roomId) {
-      return <RoomPage roomId={roomId} navigate={navigate} />;
-    }
-
-    if (broadcastHubId) {
-      return <BroadcastPage hubId={broadcastHubId} navigate={navigate} />;
-    }
-
-    switch (route) {
-      case "#/":
-      case "":
-        return (
-          <HomePage navigate={navigate} isAuthenticated={isAuthenticated} />
-        );
-
-      case "#/login":
-        return (
-          <LoginPage
-            navigate={navigate}
-            onLogin={(u) => {
-              setUser(u);
-              navigate("#/admin");
-            }}
+          {/* Protected — host only */}
+          <Route
+            path="/host"
+            element={
+              <ProtectedRoute>
+                <HostDashboardPage />
+              </ProtectedRoute>
+            }
           />
-        );
-
-      case "#/admin":
-        if (!isAuthenticated) {
-          navigate("#/login");
-          return null;
-        }
-        return (
-          <AdminPage
-            navigate={navigate}
-            currentUser={user}
-            onLogout={() => {
-              logout();
-              navigate("#/");
-            }}
+          <Route
+            path="/host/:hubId"
+            element={
+              <ProtectedRoute>
+                <HostBroadcastPage />
+              </ProtectedRoute>
+            }
           />
-        );
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
 
-      case "#/room":
-        return <RoomJoinPage navigate={navigate} />;
-
-      default:
-        return (
-          <HomePage navigate={navigate} isAuthenticated={isAuthenticated} />
-        );
-    }
-  };
-
-  return <>{renderPage()}</>;
-};
-
-export default App;
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
+  );
+}

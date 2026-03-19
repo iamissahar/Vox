@@ -1,18 +1,1 @@
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-html,
-body,
-#root {
-  height: 100%;
-}
-
-body {
-  background: #080808;
-  color: #f0ede8;
-}
+/* index.css intentionally minimal — all styles live in styles/globals.css */

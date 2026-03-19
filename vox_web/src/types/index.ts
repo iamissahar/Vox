@@ -1,11 +1,4 @@
-// API Types derived from Swagger spec
-
-export interface UserInfo {
-  id: string;
-  email: string;
-  name: string;
-  picture: string;
-}
+// ─── Auth ────────────────────────────────────────────────────────────────────
 
 export interface LoginPayload {
   login: string;
@@ -19,30 +12,35 @@ export interface SignUpPayload {
   password: string;
 }
 
+// ─── User ────────────────────────────────────────────────────────────────────
+
+export interface UserInfo {
+  id: string;
+  email: string;
+  name: string;
+  picture: string;
+}
+
+// ─── Hub ─────────────────────────────────────────────────────────────────────
+
+export interface Hub {
+  id: string;
+}
+
+// ─── Voice ───────────────────────────────────────────────────────────────────
+
+export interface VoiceReference {
+  file_id: string;
+  path: string;
+  text: string;
+  type: string;
+}
+
+// ─── HTTP ────────────────────────────────────────────────────────────────────
+
 export interface HttpErrorResponse {
   error: {
     code: number;
     message: string;
   };
 }
-
-export type OAuthProvider = "google" | "github";
-
-export interface Language {
-  code: string;
-  label: string;
-}
-
-// App state types
-export interface AuthState {
-  user: UserInfo | null;
-  isLoading: boolean;
-}
-
-export type Route =
-  | "#/"
-  | "#/login"
-  | "#/signup"
-  | "#/admin"
-  | "#/room"
-  | string; // for dynamic routes like #/room/abc
