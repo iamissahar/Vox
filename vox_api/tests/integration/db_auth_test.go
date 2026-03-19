@@ -231,10 +231,11 @@ func TestGetUser(t *testing.T) {
 				helpers.InsertProviderUserRef(t, vars.User.ID, tc.providerID, tc.userProviderID, dbtest)
 			}
 
-			u, err := dbAuth.GetUser(ctx, log, tc.providerID, tc.userProviderID)
+			u, ok, err := dbAuth.GetUser(ctx, log, tc.providerID, tc.userProviderID)
 			if tc.wantErr {
 				assert.Error(t, err)
 				assert.Empty(t, u.ID)
+				assert.False(t, ok)
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, tc.wantUser.ID, u.ID)

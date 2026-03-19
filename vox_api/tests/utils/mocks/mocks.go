@@ -6,6 +6,7 @@ import (
 	"vox/internal/auth"
 	"vox/internal/hub"
 	"vox/internal/user"
+	"vox/internal/user/voice"
 
 	fishaudio "github.com/fishaudio/fish-audio-go"
 	"go.uber.org/zap"
@@ -13,7 +14,7 @@ import (
 
 type AuthDB struct {
 	AddNewManualUserF   func(ctx context.Context, log *zap.Logger, u auth.UserInfo, hash []byte) error
-	GetUserF            func(ctx context.Context, log *zap.Logger, providerID int, userProviderID string) (auth.UserInfo, error)
+	GetUserF            func(ctx context.Context, log *zap.Logger, providerID int, userProviderID string) (auth.UserInfo, bool, error)
 	AddNewProviderUserF func(ctx context.Context, log *zap.Logger, u auth.UserInfo) error
 	GetPasswordHashF    func(ctx context.Context, log *zap.Logger, login string) ([]byte, error)
 	SaveRefreshTokenF   func(ctx context.Context, log *zap.Logger, login, refreshHash string) error
@@ -23,7 +24,7 @@ type AuthDB struct {
 func (m *AuthDB) AddNewManualUser(ctx context.Context, log *zap.Logger, u auth.UserInfo, hash []byte) error {
 	return m.AddNewManualUserF(ctx, log, u, hash)
 }
-func (m *AuthDB) GetUser(ctx context.Context, log *zap.Logger, providerID int, userProviderID string) (auth.UserInfo, error) {
+func (m *AuthDB) GetUser(ctx context.Context, log *zap.Logger, providerID int, userProviderID string) (auth.UserInfo, bool, error) {
 	return m.GetUserF(ctx, log, providerID, userProviderID)
 }
 func (m *AuthDB) AddNewProviderUser(ctx context.Context, log *zap.Logger, u auth.UserInfo) error {
@@ -57,13 +58,22 @@ func (m *UserDB) GetUserInfo(ctx context.Context, log *zap.Logger, userID string
 
 type VoiceDB struct {
 	SaveNewVoiceReferenceF func(ctx context.Context, log *zap.Logger, userID, text, fileID, path, typeof string) error
+	GetVoiceReferenceF     func(ctx context.Context, log *zap.Logger, userID string) ([5]voice.VoiceReference, int, error)
+	DeleteVoiceReferenceF  func(ctx context.Context, log *zap.Logger, userID, fileID string) error
 }
 
 func (m *VoiceDB) SaveNewVoiceReference(ctx context.Context, log *zap.Logger, userID, text, fileID, path, typeof string) error {
 	return m.SaveNewVoiceReferenceF(ctx, log, userID, text, fileID, path, typeof)
 }
 
-// MockFishBuilder - мок для тестов
+func (m *VoiceDB) GetVoiceReference(ctx context.Context, log *zap.Logger, userID string) ([5]voice.VoiceReference, int, error) {
+	return m.GetVoiceReferenceF(ctx, log, userID)
+}
+
+func (m *VoiceDB) DeleteVoiceReference(ctx context.Context, log *zap.Logger, userID, fileID string) error {
+	return m.DeleteVoiceReferenceF(ctx, log, userID, fileID)
+}
+
 type MockFishBuilder struct {
 	tokens *hub.StringChan
 	hub    *hub.Hub

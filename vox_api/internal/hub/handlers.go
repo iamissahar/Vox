@@ -222,6 +222,7 @@ func (h *HubAPI) DeleteHubHandler(ctx *gin.Context) {
 		}
 
 		h.MGR.Delete(hub.ID)
+		cache.RemoveHub(userID, hub.ID)
 		ctx.Status(http.StatusNoContent)
 	default:
 		log.Error("Invalid host_and_hub_cache type")

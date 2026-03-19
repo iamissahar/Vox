@@ -114,8 +114,8 @@ func TestProviderCallbackHandler_AddNewProviderUserDBError(t *testing.T) {
 	cfg.GoogleUserInfoURL = uiSrv.URL + "/userinfo"
 
 	db := helpers.ErrorAuthDB()
-	db.GetUserF = func(_ context.Context, _ *zap.Logger, _ int, _ string) (auth.UserInfo, error) {
-		return auth.UserInfo{}, nil // not found — triggers AddNewProviderUser
+	db.GetUserF = func(_ context.Context, _ *zap.Logger, _ int, _ string) (auth.UserInfo, bool, error) {
+		return auth.UserInfo{}, false, nil // not found — triggers AddNewProviderUser
 	}
 
 	api := &auth.AuthAPI{DB: db, Cfg: cfg}
@@ -189,8 +189,8 @@ func TestProviderCallbackHandler_HappyPath_NewUser_GitHub(t *testing.T) {
 	cfg.GithubUserInfoURL = uiSrv.URL + "/user"
 
 	db := helpers.HappyAuthDB(vars.ExistingUser)
-	db.GetUserF = func(_ context.Context, _ *zap.Logger, _ int, _ string) (auth.UserInfo, error) {
-		return auth.UserInfo{}, nil // not found — triggers AddNewProviderUser
+	db.GetUserF = func(_ context.Context, _ *zap.Logger, _ int, _ string) (auth.UserInfo, bool, error) {
+		return auth.UserInfo{}, false, nil // not found — triggers AddNewProviderUser
 	}
 
 	api := &auth.AuthAPI{DB: db, Cfg: cfg}

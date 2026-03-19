@@ -28,8 +28,7 @@ const (
 
 func (gu *googleUser) Get(ctx context.Context) (u UserInfo, ok bool, err error) {
 	gu.log.Debug("googleUser.Get", zap.Bool("ctx_is_nil", ctx == nil))
-	u, err = gu.db.GetUser(ctx, gu.log, _GOOGLE_PROVIDER_ID, gu.ID)
-	return u, u.ID != "", err
+	return gu.db.GetUser(ctx, gu.log, _GOOGLE_PROVIDER_ID, gu.ID)
 }
 
 func (gu *googleUser) Create(ctx context.Context) (u UserInfo, err error) {
@@ -48,8 +47,7 @@ func (gu *googleUser) Create(ctx context.Context) (u UserInfo, err error) {
 
 func (gu *githubUser) Get(ctx context.Context) (u UserInfo, ok bool, err error) {
 	gu.log.Debug("githubUser.Get", zap.Bool("ctx_is_nil", ctx == nil))
-	u, err = gu.db.GetUser(ctx, gu.log, _GITHUB_PROVIDER_ID, strconv.Itoa(gu.ID))
-	return u, u.ID != "", err
+	return gu.db.GetUser(ctx, gu.log, _GITHUB_PROVIDER_ID, strconv.Itoa(gu.ID))
 }
 
 func (gu *githubUser) Create(ctx context.Context) (u UserInfo, err error) {

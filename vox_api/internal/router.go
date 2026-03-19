@@ -134,7 +134,10 @@ func NewRouter(cfg *models.Config, pool *models.Pool, logger *zap.Logger, atom z
 
 	corsGroups.GET("/user/info", timeout, authAPI.IsAuthorized, userAPI.InfoHandler)
 	corsGroups.GET("/user/hubs", timeout, authAPI.IsAuthorized, hubAPI.PutCache(hostAndHubs), userAPI.HubsHandler)
-	corsGroups.POST("/user/voice", authAPI.IsAuthorized, hubAPI.IsContentTypeValid, voiceAPI.ReferenceHandler)
+	corsGroups.POST("/user/voice", authAPI.IsAuthorized, hubAPI.IsContentTypeValid, voiceAPI.NewReferenceHandler)
+	corsGroups.GET("/user/voice/meta", authAPI.IsAuthorized, voiceAPI.GetMetaReferenceHandler)
+	corsGroups.GET("/user/voice/file", authAPI.IsAuthorized, voiceAPI.GetMetaReferenceHandler)
+	corsGroups.DELETE("/user/voice", authAPI.IsAuthorized, voiceAPI.DeleteReferenceHandler)
 
 	corsGroups.PUT("/admin/logs/level", timeout, authAPI.IsAdmin, logsAPI.LevelHandler)
 

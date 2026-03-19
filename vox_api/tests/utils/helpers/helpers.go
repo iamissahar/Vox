@@ -39,8 +39,8 @@ import (
 
 func HappyAuthDB(u auth.UserInfo) *mocks.AuthDB {
 	return &mocks.AuthDB{
-		GetUserF: func(_ context.Context, _ *zap.Logger, _ int, _ string) (auth.UserInfo, error) {
-			return u, nil
+		GetUserF: func(_ context.Context, _ *zap.Logger, _ int, _ string) (auth.UserInfo, bool, error) {
+			return u, true, nil
 		},
 		AddNewProviderUserF: func(_ context.Context, _ *zap.Logger, _ auth.UserInfo) error {
 			return nil
@@ -57,8 +57,8 @@ func ErrorAuthDB() *mocks.AuthDB {
 		AddNewManualUserF: func(_ context.Context, _ *zap.Logger, _ auth.UserInfo, _ []byte) error {
 			return dbErr
 		},
-		GetUserF: func(_ context.Context, _ *zap.Logger, _ int, _ string) (auth.UserInfo, error) {
-			return auth.UserInfo{}, dbErr
+		GetUserF: func(_ context.Context, _ *zap.Logger, _ int, _ string) (auth.UserInfo, bool, error) {
+			return auth.UserInfo{}, false, dbErr
 		},
 		AddNewProviderUserF: func(_ context.Context, _ *zap.Logger, _ auth.UserInfo) error {
 			return dbErr
@@ -577,7 +577,7 @@ func NewReferenceHandlerRouter(t *testing.T, api *voice.VoiceAPI, userID any) *g
 		}
 		ctx.Next()
 	})
-	r.POST("/voice/reference", api.ReferenceHandler)
+	r.POST("/voice/reference", api.NewReferenceHandler)
 	return r
 }
 
@@ -604,6 +604,51 @@ func Argon2Hash(password string) []byte {
 	return []byte(hex.EncodeToString(hash) + "$" + hex.EncodeToString(salt))
 }
 
+func NewDeleteReferenceHandlerRouter(t *testing.T, api *voice.VoiceAPI, userID any) *gin.Engine {
+	t.Helper()
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(InjectLogger(zaptest.NewLogger(t)))
+	r.Use(func(ctx *gin.Context) {
+		if userID != nil {
+			ctx.Set("user_id", userID)
+		}
+		ctx.Next()
+	})
+	r.DELETE("/voice/reference", api.DeleteReferenceHandler)
+	return r
+}
+
+func NewGetFileReferenceHandlerRouter(t *testing.T, api *voice.VoiceAPI, userID any) *gin.Engine {
+	t.Helper()
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(InjectLogger(zaptest.NewLogger(t)))
+	r.Use(func(ctx *gin.Context) {
+		if userID != nil {
+			ctx.Set("user_id", userID)
+		}
+		ctx.Next()
+	})
+	r.GET("/voice/reference", api.GetFileReferenceHandler)
+	return r
+}
+
+func NewGetMetaReferenceHandlerRouter(t *testing.T, api *voice.VoiceAPI, userID any) *gin.Engine {
+	t.Helper()
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(InjectLogger(zaptest.NewLogger(t)))
+	r.Use(func(ctx *gin.Context) {
+		if userID != nil {
+			ctx.Set("user_id", userID)
+		}
+		ctx.Next()
+	})
+	r.GET("/voice/reference/meta", api.GetMetaReferenceHandler)
+	return r
+}
+
 func InsertRefreshToken(t *testing.T, userID string, refreshToken string, db *pgxpool.Pool) {
 	_, err := db.Exec(context.Background(), "INSERT INTO auth (user_id, refresh_token) VALUES ($1, $2)", userID, refreshToken)
 	require.NoError(t, err)
@@ -624,8 +669,13 @@ func InsertAdditionalUserInfo(t *testing.T, user vars.UserForTests, db *pgxpool.
 	require.NoError(t, err)
 }
 
-func InsertFileMetadata(t *testing.T, fileID string, path string, typeof string, db *pgxpool.Pool) {
-	_, err := db.Exec(context.Background(), "INSERT INTO files (id, full_path, type, text) VALUES ($1, $2, $3, $4)", fileID, path, typeof, "")
+func InsertFileMetadata(t *testing.T, fileID string, path string, typeof string, text string, db *pgxpool.Pool) {
+	_, err := db.Exec(context.Background(), "INSERT INTO files (id, full_path, type, text) VALUES ($1, $2, $3, $4)", fileID, path, typeof, text)
+	require.NoError(t, err)
+}
+
+func InsertFileAndUser(t *testing.T, userID string, fileID string, db *pgxpool.Pool) {
+	_, err := db.Exec(context.Background(), "INSERT INTO files_and_users (user_id, file_id) VALUES ($1, $2)", userID, fileID)
 	require.NoError(t, err)
 }
 
