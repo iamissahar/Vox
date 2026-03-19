@@ -103,7 +103,7 @@ func (v *VoiceAPI) NewReferenceHandler(ctx *gin.Context) {
 // @Description  Returns a list of voice reference metadata records for the specified user
 // @Tags         voice
 // @Produce      json
-// @Success      200  {array}   models.VoiceReference  "List of voice reference metadata"
+// @Success      200  {array}   VoiceReference  "List of voice reference metadata"
 //
 // @Failure      404  {object}  models.HttpErrorResponse       "Invalid user_id"
 // @Failure      403  {object}  models.HttpErrorResponse  "User is not authorized"
